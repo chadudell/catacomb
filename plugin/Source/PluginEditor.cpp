@@ -146,6 +146,10 @@ juce::var CatacombEditor::viewMessage(const CatacombProcessor::SeqView& v) const
   m->setProperty("hasBuffer", v.state.bufferValid);
   m->setProperty("hostPlaying", v.hostPlaying);
   m->setProperty("bpm", v.bpm);
+  m->setProperty("sampleRate", v.sampleRate);
+  m->setProperty("notes", v.notesReceived);
+  m->setProperty("peakDb", std::round(juce::Decibels::gainToDecibels(v.outputPeak, -100.0)));
+  m->setProperty("audio", v.blocks > 0);
   return juce::var(m);
 }
 

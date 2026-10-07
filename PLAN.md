@@ -138,6 +138,12 @@ zero latency, real-time safe, auval clean.
 - Gate inputs (clocks, sync, reset, BIT FLIP) have hysteresis: high above 1 V, low below 0.5 V.
   Trigger inputs fire above 0.05 V (their height is the velocity).
 - The two global settings (RESET recalls BUFFER, unipolar CV outs) are plugin parameters.
+- MIDI Notes (plugin parameter): *Play* (default) — every note fires both EGs and sets the VCO's
+  1V/OCT normal (C3 = 0 V), sequencer running or not; it resets to 0 V on transport start.
+  *Transpose only* — the hardware's behaviour. (The hardware's way alone left Logic regions and
+  Live Loops silent whenever the transport ran.)
+- UI must be checked in WebKit (tests/snap.swift), not just Chromium: WebKit mis-centres
+  script-built grid items, so grid cells stretch and centre their own content.
 - Panel extras the hardware doesn't have: click a bit LED to flip it; menus for scale and clock;
   a value readout while turning a knob; Re-roll notes (new voltages, same rhythm).
 - Scale (quant mode), CHAIN and RUN aren't host parameters: they live in the sequencer's memory

@@ -25,6 +25,7 @@ const META = {
   clockDiv: P('Clock Division', 0, 15, 4, DIVS),
   clock2Div: P('SEQ2 Clock Division', 0, 16, 0, ['Same as Clock 1', ...DIVS]),
   followTransport: P('Follow Transport', 0, 1, 1),
+  midiNotes: P('MIDI Notes', 0, 1, 0, ['Play (trigger + transpose)', 'Transpose only (hardware)']),
   resetRecallsBuffer: P('RESET Jack Recalls Buffer', 0, 1, 0),
   cvOutUnipolar: P('Unipolar CV Outs', 0, 1, 0),
 };

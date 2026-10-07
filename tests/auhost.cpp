@@ -223,6 +223,24 @@ int main() {
   check(on.size() >= 8, "the sequencer plays when Logic plays");
   check(offGrid == 0, "every note starts on Logic's 1/16 grid");
 
+  // Logic playing, the sequencer running, all its bits off: a MIDI note (as from a
+  // region or a Live Loop) still plays — the default MIDI Notes mode.
+  {
+    Instance k;
+    k.open();
+    k.transport.playing = true;
+    k.render(0.2);
+    MusicDeviceMIDIEvent(k.au, 0x90, 60, 100, 0);
+    // The factory pattern may also be sounding; compare against no note.
+    Instance quiet;
+    quiet.open();
+    quiet.transport.playing = true;
+    quiet.render(0.2);
+    const double withNote = peak(k.render(0.1)), without = peak(quiet.render(0.1));
+    std::printf("      during playback: with a MIDI note %.3f, without %.3f\n", withNote, without);
+    check(withNote > 0.05 && withNote > without + 0.02, "a MIDI note plays while Logic plays (MIDI Notes: Play)");
+  }
+
   a.transport.playing = false;
   a.render(1.0); // let the last note die away
   check(peak(a.render(0.3)) < 1e-6, "stops with the transport");

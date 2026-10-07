@@ -53,13 +53,17 @@ public:
   void armClocks(bool fireNow);
   static double tempoHz(double knob);
 
-  // Oscillator phases, noise, filter and envelopes back to power-on. The plugin calls
+  // Oscillator phases, noise, filter, envelopes and the keyboard pitch back to power-on. The plugin calls
   // this when the host's transport starts, so every playback or bounce of a song
   // sounds the same, whatever was played before.
   void resetVoice();
 
-  // MIDI note on (manual p. 47): moves the quantizer's root; when stopped, also plays.
+  // MIDI note on, the hardware's way (manual p. 47): moves the quantizer's root; when
+  // the sequencers are stopped, also plays.
   void noteOn(int note, double velocity);
+  // MIDI note on, a keyboard's way: always fires both envelopes (with the velocity) and
+  // transposes the VCO, as if a keyboard's CV were patched into VCO 1V/OCT (C3 = 0 V).
+  void playNote(int note, double velocity);
 
   // Panel feedback for the UI (LED flashes etc.), collected since the last call.
   int takeEvents(PanelEvent* dest, int max);
@@ -108,6 +112,7 @@ private:
   double internalTrig = 0; // TRIGGER button / EG TRIG MIX / MIDI, as a gate voltage
   int internalTrigSamples = 0;
   double pendingVelocity = 0;
+  double keyboardVolts = 0; // the normal at VCO 1V/OCT, set by playNote()
 
   double vcoPhase = 0, mvcoPhase = 0;
   dsp::WhiteNoise white;

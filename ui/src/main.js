@@ -161,7 +161,12 @@ function applySeq(v) {
   runLamp.classList.toggle('on', v.running);
   chainLamp.classList.toggle('on', v.chained);
   if (document.activeElement !== scaleMenu) scaleMenu.value = String(v.quantMode);
-  status.textContent = `v${version} · ${v.bpm.toFixed(1)} BPM${v.hostPlaying ? ' · host playing' : ''}`;
+  const audio = v.audio === undefined ? '' : v.audio ? `audio ${(v.sampleRate / 1000).toFixed(1)} kHz` : 'no audio yet';
+  const level = v.peakDb === undefined ? '' : v.peakDb <= -100 ? 'silent' : `out ${v.peakDb} dB`;
+  status.textContent = [
+    `v${version}`, audio, `${v.bpm.toFixed(1)} BPM`, v.hostPlaying ? 'Logic playing' : 'Logic stopped',
+    v.running ? 'sequencer running' : 'sequencer stopped', v.notes !== undefined ? `MIDI notes ${v.notes}` : '', level,
+  ].filter(Boolean).join(' · ');
 }
 
 // ---- Patch bay ------------------------------------------------------------------------------

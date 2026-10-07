@@ -30,6 +30,7 @@ inline const juce::String clock2Div = "clock2Div";       // 0 = same as clock 1,
 inline const juce::String followTransport = "followTransport";
 inline const juce::String resetRecallsBuffer = "resetRecallsBuffer"; // global setting 1,1
 inline const juce::String cvOutUnipolar = "cvOutUnipolar";           // global setting 1,2
+inline const juce::String midiNotes = "midiNotes";                   // 0 play + transpose, 1 hardware
 } // namespace ids
 
 inline juce::AudioProcessorValueTreeState::ParameterLayout makeLayout() {
@@ -60,6 +61,9 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout makeLayout() {
       juce::ParameterID{ids::clock2Div, 1}, "SEQ2 Clock Division", divisions2, 0));
   layout.add(std::make_unique<juce::AudioParameterBool>(
       juce::ParameterID{ids::followTransport, 1}, "Follow Transport", true));
+  layout.add(std::make_unique<juce::AudioParameterChoice>(
+      juce::ParameterID{ids::midiNotes, 1}, "MIDI Notes",
+      juce::StringArray{"Play (trigger + transpose)", "Transpose only (hardware)"}, 0));
   layout.add(std::make_unique<juce::AudioParameterBool>(
       juce::ParameterID{ids::resetRecallsBuffer, 1}, "RESET Jack Recalls Buffer", false));
   layout.add(std::make_unique<juce::AudioParameterBool>(

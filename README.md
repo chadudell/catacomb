@@ -21,6 +21,7 @@ tests/run.sh               # engine unit tests (clang only)
 tests/render.sh            # render example patches to renders/*.wav
 plugin/build.sh install    # build the AU, install it, validate with auval
 tests/auhost.sh            # load the installed AU like Logic does: transport, MIDI, save/restore
+swift tests/snap.swift URL out.png 1480 592   # render the panel in WebKit (what Logic uses)
 ```
 
 Needs Xcode or the Command Line Tools and CMake (`python3 -m pip install --user cmake ninja`).
@@ -30,7 +31,12 @@ In Logic or GarageBand: new Software Instrument track → Instrument slot →
 **AU Instruments → Catacomb → Catacomb**.
 
 - Press play in Logic: the sequencers run, locked to the project's grid (Clock Division, default
-  1/16). Stopped, they don't run; MIDI notes play the voice (and transpose when quantized).
+  1/16). Stopped, they don't run.
+- MIDI notes (regions, Live Loops, a keyboard): **MIDI notes: Play** (default) fires the
+  envelopes and transposes the VCO from C3, sequencer running or not. **Transpose only** is
+  the hardware's way: notes move the quantizer's root, and only play while it's stopped.
+- After installing a new build, quit and reopen Logic: it keeps the old one loaded until then.
+  The panel's footer shows the version and what the plugin sees (audio, transport, MIDI, level).
 - Every knob is in Logic's automation lanes and the plugin's Controls view.
 - Patch bay: drag between jacks to patch (an input with no cable runs on its normal — hover a
   jack to see it); drag a cable out of an input to move or remove it; double-click a jack to clear it.

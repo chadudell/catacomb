@@ -336,3 +336,17 @@ TEST("process() never allocates") {
   gCountAllocs = false;
   CHECK(gAllocs == 0);
 }
+
+TEST("playNote: triggers while the sequencer runs, and plays the note's pitch") {
+  Rig r;
+  r.e.params[Param::VcoFreq] = (float)knobFor(261.63, 20, 5000); // C4 at the knob
+  r.e.params[Param::Tempo] = 0;
+  r.e.seq.setRunning(true); // the sequencer runs (all bits off): notes still play
+  r.render(0.05);
+  r.e.playNote(67, 1.0); // G: 7 semitones up
+  r.render(0.02);
+  const auto x = r.render(0.2);
+  const double g = 261.63 * std::pow(2.0, 7.0 / 12);
+  CHECK(amplitudeAt(x, g) > 0.1);
+  CHECK(amplitudeAt(x, g) > 20 * amplitudeAt(x, 261.63));
+}

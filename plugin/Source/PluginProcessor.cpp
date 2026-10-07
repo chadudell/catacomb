@@ -26,6 +26,7 @@ CatacombProcessor::CatacombProcessor()
   follow = apvts.getRawParameterValue(ids::followTransport);
   resetRecalls = apvts.getRawParameterValue(ids::resetRecallsBuffer);
   unipolar = apvts.getRawParameterValue(ids::cvOutUnipolar);
+  midiNotes = apvts.getRawParameterValue(ids::midiNotes);
   sidechain.assign(4096, 0.0f);
 
   for (auto* param : getParameters())
@@ -124,7 +125,9 @@ void CatacombProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
     done = at;
     const auto m = meta.getMessage();
     if (m.isNoteOn()) {
-      engine.noteOn(m.getNoteNumber(), m.getFloatVelocity());
+      notesReceived++;
+      if (midiNotes->load() < 0.5f) engine.playNote(m.getNoteNumber(), m.getFloatVelocity());
+      else engine.noteOn(m.getNoteNumber(), m.getFloatVelocity());
     } else if (m.isMidiStart() || (m.isSongPositionPointer() && m.getSongPositionPointerMidiBeat() == 0)) {
       engine.seq.reset();
       engine.resetVoice();
@@ -142,6 +145,8 @@ void CatacombProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
   midi.clear();
 
   for (int c = 1; c < buffer.getNumChannels(); c++) buffer.copyFrom(c, 0, buffer, 0, 0, n);
+  outputPeak = std::max(outputPeak, buffer.getMagnitude(0, 0, n));
+  blocks++;
 
   // Panel events: clock-division requests become a parameter change (on the message
   // thread); the rest go to the UI.
@@ -252,6 +257,11 @@ void CatacombProcessor::publishView() {
   }
   view.hostPlaying = currentlyPlaying;
   view.bpm = currentBpm;
+  view.sampleRate = getSampleRate();
+  view.notesReceived = notesReceived;
+  view.outputPeak = outputPeak;
+  view.blocks = blocks;
+  outputPeak = 0;
 }
 
 // ---- Message thread ------------------------------------------------------------------------

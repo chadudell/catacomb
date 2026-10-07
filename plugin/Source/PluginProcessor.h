@@ -64,6 +64,11 @@ public:
     int playCell[2]{}, writeCell[2]{}, loopLength[2]{};
     bool hostPlaying = false;
     double bpm = 120;
+    // Diagnostics, shown in the panel's footer.
+    double sampleRate = 0;
+    int notesReceived = 0;
+    double outputPeak = 0; // since the last view
+    long long blocks = 0;
   };
   SeqView seqView() const;
 
@@ -114,6 +119,10 @@ private:
   juce::String cables;
   std::atomic<float>* resetRecalls = nullptr;
   std::atomic<float>* unipolar = nullptr;
+  std::atomic<float>* midiNotes = nullptr;
+  int notesReceived = 0;
+  float outputPeak = 0;
+  long long blocks = 0;
   std::vector<float> sidechain; // the input bus, mono, copied before we overwrite it
 
   // Audio → UI / save

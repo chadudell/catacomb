@@ -102,7 +102,13 @@ void Engine::resetVoice() {
   internalTrig = 0;
   internalTrigSamples = 0;
   pendingVelocity = 0;
+  keyboardVolts = 0; // the song's own notes set it again
   trigWas = eg2TrigWas = syncWas = false;
+}
+
+void Engine::playNote(int note, double velocity) {
+  keyboardVolts = (note - 60) / 12.0;
+  pendingVelocity = std::max(pendingVelocity, velocity);
 }
 
 void Engine::noteOn(int note, double velocity) {
@@ -300,7 +306,7 @@ double Engine::tick() {
 
   // Thru-zero linear FM: the instantaneous frequency swings around the carrier and may
   // go negative (the phase runs backwards), so the pitch centre never moves.
-  const double vcoOct = c.vcoOct + input(In::Vco1VOct, 0) + p[Param::VcoSeq1Amt] * cv1 + p[Param::VcoEg1Amt] * eg1Oct;
+  const double vcoOct = c.vcoOct + input(In::Vco1VOct, keyboardVolts) + p[Param::VcoSeq1Amt] * cv1 + p[Param::VcoEg1Amt] * eg1Oct;
   const double vcoHz = std::min(std::exp2(vcoOct), 0.25 * fsOs);
   vcoPhase += vcoHz * (1.0 + c.fmIndex * mvco / 5.0) / fsOs;
   vcoPhase -= std::floor(vcoPhase);
