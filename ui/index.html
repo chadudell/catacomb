@@ -9,125 +9,110 @@
 <body>
   <!--
     The panel is laid out at 1800 × 720 and scaled to the window (main.js).
-    Controls are declared here and built by main.js:
-      data-param  a host parameter id (Params.h / Parameters.h)
-      data-size   L / M / S knob
-      data-lo/hi  scale legends under the knob
+
+    Modules follow the instrument's functional blocks. Inside a module everything is placed
+    on a grid by data-x / data-y (module coordinates):
+      .ctl     a knob, placed so the KNOB's centre is at (x, y); its label sits above
+      .place   any other element, centred on (x, y)
+      .link    a line at y from x1 to x2, tying amount knobs to the knob they modulate
+    Shared row lines — top modules: y = 132 / 230 / 325; bottom modules: y = 82 / 131 / 180.
+
+    Knob attributes: data-param (host parameter id), data-size (L / M / S), data-lo / data-hi
+    (legends under the knob).
   -->
   <main id="panel">
-    <div class="top">
-      <section class="sec osc">
+    <div class="row top">
+      <section class="sec mod" style="width: 385px">
         <h2>Oscillators</h2>
-        <div class="grid osc-grid">
-          <div class="ctl" data-param="vcoFreq" data-size="L" data-label="VCO Frequency ∿" data-lo="20 Hz" data-hi="5 kHz"></div>
-          <div class="ctl" data-param="vcoEg1Amt" data-size="S" data-label="EG1 Amt" data-lo="−" data-hi="+"></div>
-          <div class="ctl" data-param="vcoSeq1Amt" data-size="S" data-label="SEQ1 Amt" data-hi="QTZ"></div>
-          <div class="ctl" data-param="fmAmt" data-size="M" data-label="Mod → VCO FM"></div>
-          <div class="ctl" data-param="mvcoFreq" data-size="L" data-label="Mod VCO Freq △" data-lo="LO" data-hi="1.3 kHz"></div>
-          <div class="ctl" data-param="mvcoEg1Amt" data-size="S" data-label="EG1 Amt" data-lo="−" data-hi="+"></div>
-          <div class="ctl" data-param="mvcoSeq2Amt" data-size="S" data-label="SEQ2 Amt" data-hi="QTZ"></div>
-          <div class="spacer"></div>
-        </div>
+        <div class="link" data-x1="150" data-x2="362" data-y="132"></div>
+        <div class="ctl" data-x="95" data-y="132" data-param="vcoFreq" data-size="L" data-label="VCO Frequency ∿" data-lo="20 Hz" data-hi="5 kHz"></div>
+        <div class="ctl" data-x="228" data-y="132" data-param="vcoEg1Amt" data-size="S" data-label="EG1 Amt" data-lo="−" data-hi="+"></div>
+        <div class="ctl" data-x="330" data-y="132" data-param="vcoSeq1Amt" data-size="S" data-label="SEQ1 Amt" data-hi="QTZ"></div>
+        <div class="ctl" data-x="279" data-y="230" data-param="fmAmt" data-size="S" data-label="Mod → VCO FM Amt"></div>
+        <div class="link" data-x1="150" data-x2="362" data-y="325"></div>
+        <div class="ctl" data-x="95" data-y="325" data-param="mvcoFreq" data-size="L" data-label="Mod VCO Freq △" data-lo="LO" data-hi="1.3 kHz"></div>
+        <div class="ctl" data-x="228" data-y="325" data-param="mvcoEg1Amt" data-size="S" data-label="EG1 Amt" data-lo="−" data-hi="+"></div>
+        <div class="ctl" data-x="330" data-y="325" data-param="mvcoSeq2Amt" data-size="S" data-label="SEQ2 Amt" data-hi="QTZ"></div>
       </section>
 
-      <section class="sec mix">
+      <section class="sec mod" style="width: 170px" title="Each channel overdrives past noon (RING MOD stays clean)">
         <h2>Mixer</h2>
-        <div class="grid mix-grid">
-          <div class="ctl" data-param="vcoLvl" data-size="S" data-label="VCO"></div>
-          <div class="ctl" data-param="noiseLvl" data-size="S" data-label="Noise"></div>
-          <div class="ctl" data-param="ringLvl" data-size="S" data-label="Ring Mod"></div>
-          <div class="ctl" data-param="noiseTone" data-size="S" data-label="Noise Tone" data-lo="dark" data-hi="bright"></div>
-          <div class="ctl" data-param="mvcoLvl" data-size="S" data-label="Mod VCO"></div>
-          <div class="note">past noon<br>it overdrives</div>
-        </div>
+        <div class="ctl" data-x="50" data-y="105" data-param="vcoLvl" data-size="S" data-label="VCO Lvl"></div>
+        <div class="ctl" data-x="50" data-y="220" data-param="ringLvl" data-size="S" data-label="Ring Mod Lvl"></div>
+        <div class="ctl" data-x="50" data-y="335" data-param="mvcoLvl" data-size="S" data-label="Mod VCO Lvl"></div>
+        <div class="ctl" data-x="124" data-y="162" data-param="noiseLvl" data-size="S" data-label="Noise Lvl"></div>
+        <div class="ctl" data-x="124" data-y="278" data-param="noiseTone" data-size="S" data-label="Noise Tone" data-lo="dark" data-hi="bright"></div>
       </section>
 
-      <section class="sec shape">
+      <section class="sec mod" style="width: 373px">
         <h2>Fold <span class="amp">&amp;</span> Filter</h2>
-        <div class="grid shape-grid">
-          <div class="ctl" data-param="fold" data-size="L" data-label="VCW Fold" data-lo="clean" data-hi="fold"></div>
-          <div class="ctl" data-param="foldEg1Amt" data-size="S" data-label="EG1 / CV Amt" data-lo="−" data-hi="+"></div>
-          <div class="ctl" data-param="foldSeq1Amt" data-size="S" data-label="SEQ1 Amt"></div>
-          <div class="ctl" data-param="bias" data-size="M" data-label="VCW Bias" data-lo="−" data-hi="+"></div>
-          <div class="ctl" data-param="cutoff" data-size="L" data-label="VCF Cutoff" data-lo="20 Hz" data-hi="20 kHz"></div>
-          <div class="ctl" data-param="cutoffEg1Amt" data-size="S" data-label="EG1 / CV Amt" data-lo="−" data-hi="+"></div>
-          <div class="ctl" data-param="cutoffSeq2Amt" data-size="S" data-label="SEQ2 Amt"></div>
-          <div class="pair">
-            <div class="ctl" data-param="resonance" data-size="S" data-label="Resonance"></div>
-            <div class="ctl" data-param="filterMode" data-size="S" data-label="Mode" data-lo="LP" data-hi="BP"></div>
-          </div>
+        <div class="link" data-x1="145" data-x2="350" data-y="132"></div>
+        <div class="ctl" data-x="90" data-y="132" data-param="fold" data-size="L" data-label="VCW Fold" data-lo="clean" data-hi="fold"></div>
+        <div class="ctl" data-x="220" data-y="132" data-param="foldEg1Amt" data-size="S" data-label="EG1 / CV Amt" data-lo="−" data-hi="+"></div>
+        <div class="ctl" data-x="318" data-y="132" data-param="foldSeq1Amt" data-size="S" data-label="SEQ1 Amt"></div>
+        <div class="place order" data-x="268" data-y="222" data-param="order" title="ORDER: how the wavefolder (VCW) and filter (VCF) paths are joined">
+          <div class="order-title">Order</div>
         </div>
+        <div class="link" data-x1="145" data-x2="350" data-y="325"></div>
+        <div class="ctl" data-x="90" data-y="325" data-param="cutoff" data-size="L" data-label="VCF Cutoff" data-lo="20 Hz" data-hi="20 kHz"></div>
+        <div class="ctl" data-x="220" data-y="325" data-param="cutoffEg1Amt" data-size="S" data-label="EG1 / CV Amt" data-lo="−" data-hi="+"></div>
+        <div class="ctl" data-x="318" data-y="325" data-param="cutoffSeq2Amt" data-size="S" data-label="SEQ2 Amt"></div>
       </section>
 
-      <section class="sec out">
-        <h2>Paths <span class="amp">&amp;</span> Envelopes</h2>
-        <div class="grid out-grid">
-          <div class="order" data-param="order" title="ORDER: how the wavefolder (VCW) and filter (VCF) paths are joined">
-            <div class="order-title">Order</div>
-          </div>
-          <div class="ctl" data-param="blend" data-size="M" data-label="Blend" data-lo="VCW" data-hi="VCF"></div>
-          <div class="ctl" data-param="volume" data-size="M" data-label="Volume"></div>
-          <div class="ctl" data-param="eg1Decay" data-size="S" data-label="EG1 Decay"></div>
-          <div class="ctl" data-param="eg2Decay" data-size="S" data-label="EG2 Decay"></div>
-          <div class="ctl" data-param="umix1Lvl" data-size="S" data-label="U Mix 1"></div>
-          <div class="ctl wide" data-param="egTrigMix" data-size="M" data-label="EG Trig Mix" data-lo="SEQ1" data-hi="SEQ2"></div>
-        </div>
+      <section class="sec mod" style="width: 462px">
+        <h2>Paths</h2>
+        <div class="ctl" data-x="80" data-y="132" data-param="bias" data-size="L" data-label="VCW Bias" data-lo="−" data-hi="+"></div>
+        <div class="ctl" data-x="231" data-y="132" data-param="blend" data-size="L" data-label="Blend" data-lo="VCW" data-hi="VCF"></div>
+        <div class="ctl" data-x="382" data-y="132" data-param="volume" data-size="L" data-label="Volume"></div>
+        <div class="ctl" data-x="80" data-y="325" data-param="resonance" data-size="L" data-label="Resonance"></div>
+        <div class="ctl" data-x="231" data-y="325" data-param="filterMode" data-size="L" data-label="Filter Mode" data-lo="LP" data-hi="BP"></div>
+        <div class="ctl" data-x="382" data-y="325" data-param="umix1Lvl" data-size="L" data-label="U Mix 1 Lvl"></div>
       </section>
     </div>
 
-    <section class="sec seq">
-      <div class="transport">
-        <button class="pad round" data-button="Trigger" title="TRIGGER: fire both envelopes">Trigger</button>
-        <div class="run">
-          <span class="lamp" id="runLamp"></span>
-          <button class="pad round red" data-button="RunStop" title="RUN / STOP the sequencers (they don't reset)">Run / Stop</button>
-        </div>
-      </div>
-      <div class="ctl tempo" data-param="tempo" data-size="M" data-label="Tempo"></div>
+    <div class="row bottom">
+      <section class="sec mod" style="width: 567px">
+        <h2>Sequencer</h2>
+        <span class="place lamp" id="runLamp" data-x="14" data-y="180"></span>
+        <button class="place pad round" data-x="56" data-y="82" data-button="Trigger" title="TRIGGER: fire both envelopes">Trigger</button>
+        <button class="place pad round red" data-x="56" data-y="180" data-button="RunStop" title="RUN / STOP the sequencers (they don't reset)">Run / Stop</button>
+        <div class="ctl" data-x="172" data-y="131" data-param="tempo" data-size="L" data-label="Tempo"></div>
 
-      <div class="keys">
-        <div class="keys-head"><span>hold to save</span><span class="qtz">← qtz scale →</span></div>
-        <button class="key" data-button="Buffer" title="BUFFER: tap to recall the saved pattern, hold 1 s to save. Hold with RESET 1 s to clear.">Buffer</button>
-        <button class="key c1" data-button="Length1" title="LENGTH 1: shorten SEQ1 (8 → 1 → 8). + RESET: back to 8. With BIT SHIFT 1: previous scale.">Length</button>
-        <button class="key c2" data-button="Shift1" title="BIT SHIFT 1: rotate SEQ1 right. Hold as a modifier: + RESET undo, + ADVANCE move the write head, + LENGTH / BIT FLIP change the scale.">Bit Shift</button>
-        <button class="key c3" data-button="Flip1" title="BIT FLIP 1: flip SEQ1's bit at the write head (hold: every step).">Bit Flip</button>
-        <button class="key" data-button="Reset" title="RESET: both play heads to bit 1">Reset</button>
-        <button class="key" data-button="Chain" title="CHAIN SEQ: one 16-step loop">Chain Seq</button>
-        <span class="lamp small" id="chainLamp"></span>
-        <span></span>
-        <button class="key" data-button="Advance" title="ADVANCE: step both heads (while stopped)">Advance</button>
-        <button class="key c1" data-button="Length2" title="LENGTH 2: shorten SEQ2. With BIT SHIFT 2: slower clock division.">Length</button>
-        <button class="key c2" data-button="Shift2" title="BIT SHIFT 2: rotate SEQ2 right (chained: offset SEQ2's play head).">Bit Shift</button>
-        <button class="key c3" data-button="Flip2" title="BIT FLIP 2: flip SEQ2's bit at the write head. With BIT SHIFT 2: faster clock division.">Bit Flip</button>
-      </div>
+        <div class="place key-note" data-x="290" data-y="52">Hold to save</div>
+        <div class="place key-note" data-x="470" data-y="52">← QTZ scale →</div>
+        <button class="place key" data-x="290" data-y="82" data-button="Buffer" title="BUFFER: tap to recall the saved pattern, hold 1 s to save. Hold with RESET 1 s to clear.">Buffer</button>
+        <button class="place key c1" data-x="362" data-y="82" data-button="Length1" title="LENGTH 1: shorten SEQ1 (8 → 1 → 8). + RESET: back to 8. With BIT SHIFT 1: previous scale.">Length</button>
+        <button class="place key c2" data-x="434" data-y="82" data-button="Shift1" title="BIT SHIFT 1: rotate SEQ1 right. Hold as a modifier: + RESET undo, + ADVANCE move the write head, + LENGTH / BIT FLIP change the scale.">Bit Shift</button>
+        <button class="place key c3" data-x="506" data-y="82" data-button="Flip1" title="BIT FLIP 1: flip SEQ1's bit at the write head (hold: every step).">Bit Flip</button>
+        <button class="place key" data-x="290" data-y="131" data-button="Reset" title="RESET: both play heads to bit 1">Reset</button>
+        <button class="place key" data-x="362" data-y="131" data-button="Chain" title="CHAIN SEQ: one 16-step loop">Chain Seq</button>
+        <span class="place lamp" id="chainLamp" data-x="434" data-y="131" title="Lit while chained"></span>
+        <button class="place key" data-x="290" data-y="180" data-button="Advance" title="ADVANCE: step both heads (while stopped)">Advance</button>
+        <button class="place key c1" data-x="362" data-y="180" data-button="Length2" title="LENGTH 2: shorten SEQ2. With BIT SHIFT 2: slower clock division.">Length</button>
+        <button class="place key c2" data-x="434" data-y="180" data-button="Shift2" title="BIT SHIFT 2: rotate SEQ2 right (chained: offset SEQ2's play head).">Bit Shift</button>
+        <button class="place key c3" data-x="506" data-y="180" data-button="Flip2" title="BIT FLIP 2: flip SEQ2's bit at the write head. With BIT SHIFT 2: faster clock division.">Bit Flip</button>
+      </section>
 
-      <div class="stack">
-        <div class="ctl" data-param="corrupt1" data-size="S" data-label="Corrupt"></div>
-        <div class="ctl" data-param="corrupt2" data-size="S" data-label="Corrupt"></div>
-      </div>
+      <section class="sec mod" style="width: 373px">
+        <h2>Bits <span class="hint">click a bit to flip it</span></h2>
+        <div class="ctl" data-x="44" data-y="82" data-param="corrupt1" data-size="S" data-label="Corrupt"></div>
+        <div class="ctl" data-x="44" data-y="180" data-param="corrupt2" data-size="S" data-label="Corrupt"></div>
+        <span class="place row-name" data-x="108" data-y="82">SEQ1</span>
+        <span class="place row-name" data-x="108" data-y="180">SEQ2</span>
+        <div class="place leds" id="leds1" data-x="246" data-y="82"></div>
+        <div class="place nums" data-x="246" data-y="131"><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i></div>
+        <div class="place leds" id="leds2" data-x="246" data-y="180"></div>
+      </section>
 
-      <div class="bits">
-        <div class="bits-title">Bits <span class="hint">click a bit to flip it</span></div>
-        <div class="bit-row"><span class="row-name">SEQ1</span><div class="leds" id="leds1"></div></div>
-        <div class="bit-nums"><span></span><div class="nums"><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i></div></div>
-        <div class="bit-row"><span class="row-name">SEQ2</span><div class="leds" id="leds2"></div></div>
-      </div>
-
-      <div class="stack">
-        <div class="ctl" data-param="cvRange1" data-size="S" data-label="SEQ1 CV Range"></div>
-        <div class="ctl" data-param="cvRange2" data-size="S" data-label="SEQ2 CV Range"></div>
-      </div>
-
-      <div class="settings">
-        <label>Scale <select id="scale"></select></label>
-        <label>Clock <select data-param="clockSource"></select></label>
-        <label>Step <select data-param="clockDiv"></select></label>
-        <label>SEQ2 step <select data-param="clock2Div"></select></label>
-        <label>MIDI notes <select data-param="midiNotes"></select></label>
-        <label class="check"><input type="checkbox" data-param="followTransport"> Follow transport</label>
-        <button class="small-btn" id="reroll" title="New random voltages for every bit that's on (rhythm kept)">Re-roll notes</button>
-      </div>
-    </section>
+      <section class="sec mod" style="width: 462px">
+        <h2>Range <span class="amp">&amp;</span> Envelopes</h2>
+        <div class="ctl" data-x="70" data-y="82" data-param="cvRange1" data-size="S" data-label="SEQ1 CV Range"></div>
+        <div class="ctl" data-x="70" data-y="180" data-param="cvRange2" data-size="S" data-label="SEQ2 CV Range"></div>
+        <div class="ctl" data-x="231" data-y="131" data-param="egTrigMix" data-size="L" data-label="EG Trig Mix" data-lo="SEQ1" data-hi="SEQ2"></div>
+        <div class="ctl" data-x="392" data-y="82" data-param="eg1Decay" data-size="S" data-label="EG1 Decay"></div>
+        <div class="ctl" data-x="392" data-y="180" data-param="eg2Decay" data-size="S" data-label="EG2 (VCA) Decay"></div>
+      </section>
+    </div>
 
     <aside class="sec bay">
       <h2>Patch Bay <span class="key-legend"><i class="dot in"></i>in <i class="dot out"></i>out</span></h2>
@@ -139,9 +124,15 @@
       </div>
     </aside>
 
-    <footer>
-      <span class="brand">CATACOMB</span>
-      <span class="tag">parallel generative synthesizer</span>
+    <footer class="bar">
+      <div class="brand-block"><span class="brand">CATACOMB</span><span class="tag">parallel generative synthesizer</span></div>
+      <label>Scale <select id="scale"></select></label>
+      <label>Clock <select data-param="clockSource"></select></label>
+      <label>Step <select data-param="clockDiv"></select></label>
+      <label>SEQ2 step <select data-param="clock2Div"></select></label>
+      <label>MIDI notes <select data-param="midiNotes"></select></label>
+      <label class="check"><input type="checkbox" data-param="followTransport"> Follow transport</label>
+      <button class="small-btn" id="reroll" title="New random voltages for every bit that's on (rhythm kept)">Re-roll notes</button>
       <span id="status"></span>
     </footer>
     <div id="readout" hidden></div>

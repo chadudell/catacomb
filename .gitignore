@@ -5,3 +5,4 @@ plugin/build.log
 *.pdf
 *.webp
 renders/
+*.jpg

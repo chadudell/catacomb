@@ -31,6 +31,31 @@ const knobs = new Map(); // param id → Knob
 const controls = new Map(); // param id → {set(value)} for switches, menus, checkboxes
 let meta = {};
 
+// ---- Module grid ----------------------------------------------------------------------------
+// Everything in a module is placed from data-x / data-y (module coordinates): a knob so
+// its centre lands on the point (same-size knobs on a row line then share a label
+// baseline), anything else centred on it. Links run from data-x1 to data-x2 at data-y.
+function layoutModules() {
+  for (const el of document.querySelectorAll('.mod > [data-x]')) {
+    let cx = el.offsetWidth / 2;
+    let cy = el.offsetHeight / 2;
+    const knob = el.classList.contains('ctl') && el.querySelector('.knob');
+    if (knob) {
+      cx = knob.offsetLeft + knob.offsetWidth / 2;
+      cy = knob.offsetTop + knob.offsetHeight / 2;
+    }
+    el.style.left = `${Number(el.dataset.x) - cx}px`;
+    el.style.top = `${Number(el.dataset.y) - cy}px`;
+  }
+  for (const el of document.querySelectorAll('.mod > .link')) {
+    el.style.left = `${el.dataset.x1}px`;
+    el.style.top = `${el.dataset.y}px`;
+    el.style.width = `${el.dataset.x2 - el.dataset.x1}px`;
+  }
+}
+layoutModules();
+document.fonts?.ready.then(layoutModules);
+
 // ---- Value readout ------------------------------------------------------------------------
 function showReadout(knob, id, on) {
   if (!on) {
@@ -201,6 +226,7 @@ host.onMessage((msg) => {
         buildMenus();
         buildButtons();
         built = true;
+        layoutModules();
       }
       applyParams(msg.params);
       bay.setText(msg.cables);
