@@ -1,12 +1,16 @@
 // The bridge to the plugin. Inside the AU, JUCE's WebView exposes
 // window.__JUCE__.backend; in a plain browser (UI development) there is no backend
-// and the page runs on demo data.
+// and a small stand-in plays the part (demo.js).
 //
-//   UI → plugin: 'ready', 'press' / 'release' {button}, 'setQuantMode' {value}, 'reroll'
-//   plugin → UI: 'init' {version}, and 'batch' {msgs} of:
+//   UI → plugin: 'ready'; 'param' {id, value}; 'gesture' {id, begin};
+//                'press' / 'release' {button}; 'toggleCell' {cell};
+//                'setQuantMode' {value}; 'reroll'
+//   plugin → UI: 'init' {version, meta: {id: {name, min, max, def, choices?}}, params: {id: value}},
+//                then 'batch' {msgs} of:
+//                'params' {values: {id: value}}      (automation, project loads)
 //                'seq' {bits[16], volts[16], play[2], write[2], length[2], loopLength[2],
 //                       quantMode, chained, running, hasBuffer, hostPlaying, bpm}
-//                'panel' {event, value}   (LED feedback: showLength, bufferSaved, …)
+//                'panel' {event, value}              (LED feedback: showLength, bufferSaved, …)
 
 const EVENT = 'cat';
 
@@ -30,28 +34,21 @@ function pluginHost(backend) {
   };
 }
 
-// A stand-in sequencer so the page can be worked on in a browser.
 function browserHost() {
   const listeners = new Set();
-  const bits = Array.from({ length: 16 }, () => Math.random() < 0.5);
-  let step = 0;
-  let running = false;
-  const send = () =>
-    dispatch(listeners, {
-      type: 'seq', bits, volts: bits.map(() => 0), play: [step % 8, 8 + (step % 8)], write: [step % 8, 8 + (step % 8)],
-      length: [8, 8], loopLength: [8, 8], quantMode: 2, chained: false, running, hasBuffer: false,
-      hostPlaying: false, bpm: 120,
-    });
-  setInterval(() => {
-    if (running) step++;
-    send();
-  }, 250);
+  let demo = null;
+  const emit = (msg) => dispatch(listeners, msg);
   return {
     kind: 'browser',
     post(msg) {
-      if (msg.type === 'ready') setTimeout(() => dispatch(listeners, { type: 'init', version: 'browser' }));
-      if (msg.type === 'press' && msg.button === 'RunStop') running = !running;
-      if (msg.type === 'press' && msg.button === 'Reset') step = 0;
+      if (!demo) {
+        import('./demo.js').then(({ Demo }) => {
+          demo = new Demo(emit);
+          demo.handle(msg);
+        });
+        return;
+      }
+      demo.handle(msg);
     },
     onMessage: (fn) => listeners.add(fn),
   };

@@ -72,12 +72,12 @@ CatacombEditor::CatacombEditor(CatacombProcessor& p)
   addAndMakeVisible(browser);
   browser.goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
 
-  // The panel is drawn at 1600 × 640 and zoomed to fit, so keep its proportions.
+  // The panel is drawn at 1800 × 720 and zoomed to fit, so keep its proportions.
   setResizable(true, true);
-  setResizeLimits(1000, 400, 2800, 1120);
+  setResizeLimits(1100, 440, 3000, 1200);
   if (auto* c = getConstrainer()) c->setFixedAspectRatio(2.5);
-  setSize(1400, 560);
-  startTimerHz(15);
+  setSize(1500, 600);
+  startTimerHz(30);
 }
 
 CatacombEditor::~CatacombEditor() { stopTimer(); }
@@ -101,11 +101,19 @@ void CatacombEditor::handle(const juce::var& msg) {
     auto* init = new juce::DynamicObject();
     init->setProperty("type", "init");
     init->setProperty("version", JucePlugin_VersionString);
+    init->setProperty("meta", proc.paramMeta());
+    init->setProperty("params", proc.paramValues(false));
     emit(juce::var(init));
     timerCallback();
   } else if (type == "press" || type == "release") {
     if (const int b = buttonIndex(msg["button"].toString()); b >= 0)
       proc.send({type == "press" ? CatacombProcessor::Command::Press : CatacombProcessor::Command::Release, b});
+  } else if (type == "param") {
+    proc.setParamFromUi(msg["id"].toString(), (double)msg["value"]);
+  } else if (type == "gesture") {
+    proc.gestureFromUi(msg["id"].toString(), (bool)msg["begin"]);
+  } else if (type == "toggleCell") {
+    proc.send({CatacombProcessor::Command::ToggleCell, (int)msg["cell"]});
   } else if (type == "setQuantMode") {
     proc.send({CatacombProcessor::Command::SetQuantMode, (int)msg["value"]});
   } else if (type == "reroll") {
@@ -140,6 +148,14 @@ juce::var CatacombEditor::viewMessage(const CatacombProcessor::SeqView& v) const
 void CatacombEditor::timerCallback() {
   if (!pageReady) return;
   juce::Array<juce::var> batch;
+
+  // Parameters that moved (automation, the host's own controls, a loaded project).
+  if (const auto changed = proc.paramValues(true); changed.isObject()) {
+    auto* m = new juce::DynamicObject();
+    m->setProperty("type", "params");
+    m->setProperty("values", changed);
+    batch.add(juce::var(m));
+  }
 
   // The sequencer view, only when something changed.
   const auto view = viewMessage(proc.seqView());

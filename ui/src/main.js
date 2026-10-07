@@ -1,64 +1,191 @@
+import { BitDisplay } from './bits.js';
+import { formatParam } from './format.js';
 import { createHost } from './host.js';
+import { Knob, setPanelScale } from './knob.js';
 
-const PANEL_W = 1600;
-const PANEL_H = 640;
+const PANEL_W = 1800;
+const PANEL_H = 720;
 
 const SCALES = [
   'Unquantized', 'Chromatic', 'Major', 'Pentatonic', 'Melodic Minor', 'Harmonic Minor',
   'Diminished 6th', 'Whole Tone', 'Hirajoshi', '7 Sus 4', 'Major 7th', 'Major 13th',
-  'Minor 7th', 'Minor 11th', 'Hang Drum', 'Quads',
+  'Minor 7th', 'Minor 11th', 'Hang Drum', 'Quads (Minor 3rds)',
 ];
 
 const panel = document.getElementById('panel');
+const readout = document.getElementById('readout');
 const status = document.getElementById('status');
 
-// Scale the fixed-size panel to the window.
+// ---- Fit the fixed-size panel to the window ------------------------------------------------
 function fit() {
   const s = Math.min(window.innerWidth / PANEL_W, window.innerHeight / PANEL_H);
   panel.style.transform = `scale(${s})`;
+  setPanelScale(s);
 }
 window.addEventListener('resize', fit);
 fit();
 
-function buildLeds(id) {
-  const row = document.getElementById(id);
-  return Array.from({ length: 8 }, () => {
-    const led = document.createElement('div');
-    led.className = 'led';
-    row.appendChild(led);
-    return led;
-  });
-}
-const leds = [...buildLeds('seq1'), ...buildLeds('seq2')];
-
 const host = createHost();
+const knobs = new Map(); // param id → Knob
+const controls = new Map(); // param id → {set(value)} for switches, menus, checkboxes
+let meta = {};
+
+// ---- Value readout ------------------------------------------------------------------------
+function showReadout(knob, id, on) {
+  if (!on) {
+    readout.hidden = true;
+    return;
+  }
+  const r = knob.el.getBoundingClientRect();
+  const p = panel.getBoundingClientRect();
+  const s = p.width / PANEL_W;
+  readout.style.left = `${(r.left + r.width / 2 - p.left) / s}px`;
+  readout.style.top = `${(r.top - p.top) / s - 4}px`;
+  readout.textContent = formatParam(id, knob.value, meta[id]);
+  readout.hidden = false;
+}
+
+// ---- Build controls from the markup ----------------------------------------------------------
+function buildKnobs() {
+  for (const ctl of document.querySelectorAll('.ctl[data-param]')) {
+    const id = ctl.dataset.param;
+    const m = meta[id];
+    if (!m) continue;
+    ctl.replaceChildren();
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = ctl.dataset.label || m.name;
+    ctl.appendChild(label);
+    ctl.title = m.name;
+    const knob = new Knob(ctl, {
+      size: ctl.dataset.size,
+      min: m.min,
+      max: m.max,
+      def: m.def,
+      value: m.def,
+      onChange: (v) => host.post({ type: 'param', id, value: v }),
+      onGesture: (begin) => host.post({ type: 'gesture', id, begin }),
+      onHover: (k, on) => showReadout(k, id, on),
+    });
+    if (ctl.dataset.lo || ctl.dataset.hi) {
+      const legend = document.createElement('div');
+      legend.className = 'legend';
+      legend.innerHTML = `<span>${ctl.dataset.lo || ''}</span><span>${ctl.dataset.hi || ''}</span>`;
+      ctl.appendChild(legend);
+    }
+    knobs.set(id, knob);
+  }
+}
+
+function setParam(id, value) {
+  host.post({ type: 'gesture', id, begin: true });
+  host.post({ type: 'param', id, value });
+  host.post({ type: 'gesture', id, begin: false });
+}
+
+function buildOrder() {
+  const box = document.querySelector('.order');
+  const names = meta.order?.choices || ['Parallel', 'VCW > VCF', 'VCF > VCW'];
+  const buttons = names.map((name, i) => {
+    const b = document.createElement('button');
+    b.textContent = name.replace('>', '→');
+    b.addEventListener('click', () => setParam('order', i));
+    box.appendChild(b);
+    return b;
+  });
+  controls.set('order', { set: (v) => buttons.forEach((b, i) => b.classList.toggle('on', i === Math.round(v))) });
+}
+
+function buildMenus() {
+  for (const sel of document.querySelectorAll('select[data-param]')) {
+    const id = sel.dataset.param;
+    (meta[id]?.choices || []).forEach((name, i) => sel.add(new Option(name, i)));
+    sel.addEventListener('change', () => setParam(id, Number(sel.value)));
+    controls.set(id, { set: (v) => (sel.value = String(Math.round(v))) });
+  }
+  const follow = document.querySelector('input[data-param="followTransport"]');
+  follow.addEventListener('change', () => setParam('followTransport', follow.checked ? 1 : 0));
+  controls.set('followTransport', { set: (v) => (follow.checked = v > 0.5) });
+
+  const scale = document.getElementById('scale');
+  SCALES.forEach((name, i) => scale.add(new Option(`${i + 1}. ${name}`, i)));
+  scale.addEventListener('change', () => host.post({ type: 'setQuantMode', value: Number(scale.value) }));
+
+  document.getElementById('reroll').addEventListener('click', () => host.post({ type: 'reroll' }));
+}
+
+// Momentary buttons: a press and a release, so held combos work like the hardware.
+function buildButtons() {
+  for (const b of document.querySelectorAll('[data-button]')) {
+    const button = b.dataset.button;
+    let down = false;
+    b.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      b.setPointerCapture(e.pointerId);
+      down = true;
+      b.classList.add('held');
+      host.post({ type: 'press', button });
+    });
+    const up = () => {
+      if (!down) return;
+      down = false;
+      b.classList.remove('held');
+      host.post({ type: 'release', button });
+    };
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointercancel', up);
+  }
+}
+
+function applyParams(values) {
+  for (const [id, v] of Object.entries(values)) {
+    knobs.get(id)?.set(v);
+    controls.get(id)?.set(v);
+  }
+}
+
+// ---- Sequencer view -----------------------------------------------------------------------
+const bits = new BitDisplay(document.getElementById('leds1'), document.getElementById('leds2'), (cell) =>
+  host.post({ type: 'toggleCell', cell }),
+);
+const runLamp = document.getElementById('runLamp');
+const chainLamp = document.getElementById('chainLamp');
+const scaleMenu = document.getElementById('scale');
 let version = '';
 
-// Buttons send a press and a release, so held combos work like the hardware.
-for (const el of document.querySelectorAll('button[data-button]')) {
-  const button = el.dataset.button;
-  el.addEventListener('pointerdown', () => host.post({ type: 'press', button }));
-  for (const ev of ['pointerup', 'pointerleave'])
-    el.addEventListener(ev, (e) => {
-      if (e.type === 'pointerleave' && !(e.buttons & 1)) return;
-      host.post({ type: 'release', button });
-    });
+function applySeq(v) {
+  bits.update(v);
+  runLamp.classList.toggle('on', v.running);
+  chainLamp.classList.toggle('on', v.chained);
+  if (document.activeElement !== scaleMenu) scaleMenu.value = String(v.quantMode);
+  status.textContent = `v${version} · ${v.bpm.toFixed(1)} BPM${v.hostPlaying ? ' · host playing' : ''}`;
 }
-document.querySelector('[data-action="reroll"]').addEventListener('click', () => host.post({ type: 'reroll' }));
 
+// ---- Messages ------------------------------------------------------------------------------
+let built = false;
 host.onMessage((msg) => {
-  if (msg.type === 'init') version = msg.version;
-  if (msg.type !== 'seq') return;
-  msg.bits.forEach((on, i) => {
-    const seq = i < 8 ? 0 : 1;
-    const inLoop = i % 8 < msg.length[seq];
-    leds[i].classList.toggle('on', !!on);
-    leds[i].classList.toggle('play', msg.play.includes(i));
-    leds[i].classList.toggle('out', !inLoop);
-  });
-  status.textContent =
-    `v${version} · ${host.kind} · ${msg.running ? 'running' : 'stopped'} · ` +
-    `${SCALES[msg.quantMode]}${msg.chained ? ' · chained' : ''} · ${msg.bpm.toFixed(1)} BPM` +
-    (msg.hostPlaying ? ' · host playing' : '');
+  switch (msg.type) {
+    case 'init':
+      version = msg.version;
+      meta = msg.meta;
+      if (!built) {
+        buildKnobs();
+        buildOrder();
+        buildMenus();
+        buildButtons();
+        built = true;
+      }
+      applyParams(msg.params);
+      break;
+    case 'params':
+      applyParams(msg.values);
+      break;
+    case 'seq':
+      applySeq(msg);
+      break;
+    case 'panel':
+      bits.event(msg.event, msg.value);
+      break;
+  }
 });
 host.post({ type: 'ready' });

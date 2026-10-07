@@ -23,12 +23,23 @@ CatacombProcessor::CatacombProcessor()
   clock2Div = apvts.getRawParameterValue(ids::clock2Div);
   follow = apvts.getRawParameterValue(ids::followTransport);
 
+  for (auto* param : getParameters())
+    if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(param)) paramIds.add(withId->paramID);
+  paramDirty = std::make_unique<std::atomic<bool>[]>((size_t)paramIds.size());
+  for (int i = 0; i < paramIds.size(); i++) {
+    paramDirty[(size_t)i] = true;
+    apvts.addParameterListener(paramIds[i], this);
+  }
+
   engine.seq.factoryPattern(); // a new unit comes with sequences in it
   view.state = engine.seq.state();
   startTimerHz(10);
 }
 
-CatacombProcessor::~CatacombProcessor() { stopTimer(); }
+CatacombProcessor::~CatacombProcessor() {
+  stopTimer();
+  for (const auto& id : paramIds) apvts.removeParameterListener(id, this);
+}
 
 bool CatacombProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
   const auto out = layouts.getMainOutputChannelSet();
@@ -64,6 +75,7 @@ void CatacombProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
           case Command::Release: engine.release((Button)c.value); break;
           case Command::SetQuantMode: engine.seq.setQuantMode(c.value); break;
           case Command::Reroll: engine.seq.reroll(); break;
+          case Command::ToggleCell: engine.seq.toggleCell(c.value); break;
         }
       }
     };
@@ -117,7 +129,7 @@ void CatacombProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
   }
 
   samplesSinceView += n;
-  if (samplesSinceView >= getSampleRate() / 30) publishView();
+  if (samplesSinceView >= getSampleRate() / 60) publishView();
 }
 
 // Host tempo: each step is a fixed division of a beat, locked to Logic's grid while it
@@ -232,6 +244,57 @@ int CatacombProcessor::takePanelEvents(PanelEvent* dest, int max) {
   for (int i = 0; i < r.blockSize1; i++) dest[k++] = events[(size_t)(r.startIndex1 + i)];
   for (int i = 0; i < r.blockSize2; i++) dest[k++] = events[(size_t)(r.startIndex2 + i)];
   return k;
+}
+
+void CatacombProcessor::parameterChanged(const juce::String& id, float) {
+  const int i = paramIds.indexOf(id);
+  if (i < 0) return;
+  paramDirty[(size_t)i] = true;
+  anyParamDirty = true;
+}
+
+static double valueOf(juce::RangedAudioParameter* p) {
+  return p->convertFrom0to1(p->getValue()); // a choice comes back as its index
+}
+
+juce::var CatacombProcessor::paramValues(bool onlyChanged) {
+  if (onlyChanged && !anyParamDirty.exchange(false)) return {};
+  if (!onlyChanged) anyParamDirty = false;
+  auto* obj = new juce::DynamicObject();
+  for (int i = 0; i < paramIds.size(); i++) {
+    const bool dirty = paramDirty[(size_t)i].exchange(false);
+    if (onlyChanged && !dirty) continue;
+    obj->setProperty(paramIds[i], valueOf(apvts.getParameter(paramIds[i])));
+  }
+  return juce::var(obj);
+}
+
+juce::var CatacombProcessor::paramMeta() const {
+  auto* obj = new juce::DynamicObject();
+  for (const auto& id : paramIds) {
+    auto* p = apvts.getParameter(id);
+    const auto range = p->getNormalisableRange();
+    auto* m = new juce::DynamicObject();
+    m->setProperty("name", p->getName(64));
+    m->setProperty("min", range.start);
+    m->setProperty("max", range.end);
+    m->setProperty("def", p->convertFrom0to1(p->getDefaultValue()));
+    if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(p)) {
+      juce::Array<juce::var> names;
+      for (const auto& c : choice->choices) names.add(c);
+      m->setProperty("choices", names);
+    }
+    obj->setProperty(id, juce::var(m));
+  }
+  return juce::var(obj);
+}
+
+void CatacombProcessor::setParamFromUi(const juce::String& id, double value) {
+  if (auto* p = apvts.getParameter(id)) p->setValueNotifyingHost(p->convertTo0to1((float)value));
+}
+
+void CatacombProcessor::gestureFromUi(const juce::String& id, bool begin) {
+  if (auto* p = apvts.getParameter(id)) begin ? p->beginChangeGesture() : p->endChangeGesture();
 }
 
 void CatacombProcessor::timerCallback() {

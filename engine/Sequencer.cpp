@@ -119,6 +119,13 @@ void Sequencer::flip(int seq) {
   refreshHeld(1);
 }
 
+void Sequencer::toggleCell(int cell) {
+  if (cell < 0 || cell >= kCells) return;
+  flipCell(cell);
+  refreshHeld(0);
+  refreshHeld(1);
+}
+
 void Sequencer::decrementLength(int seq) {
   mem.length[seq] = mem.length[seq] == 1 ? kBits : mem.length[seq] - 1;
   clampHeads();

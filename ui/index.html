@@ -7,25 +7,138 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!--
+    The panel is laid out at 1800 × 720 and scaled to the window (main.js).
+    Controls are declared here and built by main.js:
+      data-param  a host parameter id (Params.h / Parameters.h)
+      data-size   L / M / S knob
+      data-lo/hi  scale legends under the knob
+  -->
   <main id="panel">
-    <header>
-      <h1>CATACOMB</h1>
-      <p class="sub">parallel generative synthesizer · test panel (the full panel arrives in M4)</p>
-    </header>
-    <section class="bits">
-      <div class="row"><span class="label">SEQ1</span><div class="leds" id="seq1"></div></div>
-      <div class="row"><span class="label">SEQ2</span><div class="leds" id="seq2"></div></div>
+    <div class="top">
+      <section class="sec osc">
+        <h2>Oscillators</h2>
+        <div class="grid osc-grid">
+          <div class="ctl" data-param="vcoFreq" data-size="L" data-label="VCO Frequency ∿" data-lo="20 Hz" data-hi="5 kHz"></div>
+          <div class="ctl" data-param="vcoEg1Amt" data-size="S" data-label="EG1 Amt" data-lo="−" data-hi="+"></div>
+          <div class="ctl" data-param="vcoSeq1Amt" data-size="S" data-label="SEQ1 Amt" data-hi="QTZ"></div>
+          <div class="ctl" data-param="fmAmt" data-size="M" data-label="Mod → VCO FM"></div>
+          <div class="ctl" data-param="mvcoFreq" data-size="L" data-label="Mod VCO Freq △" data-lo="LO" data-hi="1.3 kHz"></div>
+          <div class="ctl" data-param="mvcoEg1Amt" data-size="S" data-label="EG1 Amt" data-lo="−" data-hi="+"></div>
+          <div class="ctl" data-param="mvcoSeq2Amt" data-size="S" data-label="SEQ2 Amt" data-hi="QTZ"></div>
+          <div class="spacer"></div>
+        </div>
+      </section>
+
+      <section class="sec mix">
+        <h2>Mixer</h2>
+        <div class="grid mix-grid">
+          <div class="ctl" data-param="vcoLvl" data-size="S" data-label="VCO"></div>
+          <div class="ctl" data-param="noiseLvl" data-size="S" data-label="Noise"></div>
+          <div class="ctl" data-param="ringLvl" data-size="S" data-label="Ring Mod"></div>
+          <div class="ctl" data-param="noiseTone" data-size="S" data-label="Noise Tone" data-lo="dark" data-hi="bright"></div>
+          <div class="ctl" data-param="mvcoLvl" data-size="S" data-label="Mod VCO"></div>
+          <div class="note">past noon<br>it overdrives</div>
+        </div>
+      </section>
+
+      <section class="sec shape">
+        <h2>Fold <span class="amp">&amp;</span> Filter</h2>
+        <div class="grid shape-grid">
+          <div class="ctl" data-param="fold" data-size="L" data-label="VCW Fold" data-lo="clean" data-hi="fold"></div>
+          <div class="ctl" data-param="foldEg1Amt" data-size="S" data-label="EG1 / CV Amt" data-lo="−" data-hi="+"></div>
+          <div class="ctl" data-param="foldSeq1Amt" data-size="S" data-label="SEQ1 Amt"></div>
+          <div class="ctl" data-param="bias" data-size="M" data-label="VCW Bias" data-lo="−" data-hi="+"></div>
+          <div class="ctl" data-param="cutoff" data-size="L" data-label="VCF Cutoff" data-lo="20 Hz" data-hi="20 kHz"></div>
+          <div class="ctl" data-param="cutoffEg1Amt" data-size="S" data-label="EG1 / CV Amt" data-lo="−" data-hi="+"></div>
+          <div class="ctl" data-param="cutoffSeq2Amt" data-size="S" data-label="SEQ2 Amt"></div>
+          <div class="pair">
+            <div class="ctl" data-param="resonance" data-size="S" data-label="Resonance"></div>
+            <div class="ctl" data-param="filterMode" data-size="S" data-label="Mode" data-lo="LP" data-hi="BP"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec out">
+        <h2>Paths <span class="amp">&amp;</span> Envelopes</h2>
+        <div class="grid out-grid">
+          <div class="order" data-param="order" title="ORDER: how the wavefolder (VCW) and filter (VCF) paths are joined">
+            <div class="order-title">Order</div>
+          </div>
+          <div class="ctl" data-param="blend" data-size="M" data-label="Blend" data-lo="VCW" data-hi="VCF"></div>
+          <div class="ctl" data-param="volume" data-size="M" data-label="Volume"></div>
+          <div class="ctl" data-param="eg1Decay" data-size="S" data-label="EG1 Decay"></div>
+          <div class="ctl" data-param="eg2Decay" data-size="S" data-label="EG2 Decay"></div>
+          <div class="ctl" data-param="umix1Lvl" data-size="S" data-label="U Mix 1"></div>
+          <div class="ctl wide" data-param="egTrigMix" data-size="M" data-label="EG Trig Mix" data-lo="SEQ1" data-hi="SEQ2"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="sec seq">
+      <div class="transport">
+        <button class="pad round" data-button="Trigger" title="TRIGGER: fire both envelopes">Trigger</button>
+        <div class="run">
+          <span class="lamp" id="runLamp"></span>
+          <button class="pad round red" data-button="RunStop" title="RUN / STOP the sequencers (they don't reset)">Run / Stop</button>
+        </div>
+      </div>
+      <div class="ctl tempo" data-param="tempo" data-size="M" data-label="Tempo"></div>
+
+      <div class="keys">
+        <div class="keys-head"><span>hold to save</span><span class="qtz">← qtz scale →</span></div>
+        <button class="key" data-button="Buffer" title="BUFFER: tap to recall the saved pattern, hold 1 s to save. Hold with RESET 1 s to clear.">Buffer</button>
+        <button class="key c1" data-button="Length1" title="LENGTH 1: shorten SEQ1 (8 → 1 → 8). + RESET: back to 8. With BIT SHIFT 1: previous scale.">Length</button>
+        <button class="key c2" data-button="Shift1" title="BIT SHIFT 1: rotate SEQ1 right. Hold as a modifier: + RESET undo, + ADVANCE move the write head, + LENGTH / BIT FLIP change the scale.">Bit Shift</button>
+        <button class="key c3" data-button="Flip1" title="BIT FLIP 1: flip SEQ1's bit at the write head (hold: every step).">Bit Flip</button>
+        <button class="key" data-button="Reset" title="RESET: both play heads to bit 1">Reset</button>
+        <button class="key" data-button="Chain" title="CHAIN SEQ: one 16-step loop">Chain Seq</button>
+        <span class="lamp small" id="chainLamp"></span>
+        <span></span>
+        <button class="key" data-button="Advance" title="ADVANCE: step both heads (while stopped)">Advance</button>
+        <button class="key c1" data-button="Length2" title="LENGTH 2: shorten SEQ2. With BIT SHIFT 2: slower clock division.">Length</button>
+        <button class="key c2" data-button="Shift2" title="BIT SHIFT 2: rotate SEQ2 right (chained: offset SEQ2's play head).">Bit Shift</button>
+        <button class="key c3" data-button="Flip2" title="BIT FLIP 2: flip SEQ2's bit at the write head. With BIT SHIFT 2: faster clock division.">Bit Flip</button>
+      </div>
+
+      <div class="stack">
+        <div class="ctl" data-param="corrupt1" data-size="S" data-label="Corrupt"></div>
+        <div class="ctl" data-param="corrupt2" data-size="S" data-label="Corrupt"></div>
+      </div>
+
+      <div class="bits">
+        <div class="bits-title">Bits <span class="hint">click a bit to flip it</span></div>
+        <div class="bit-row"><span class="row-name">SEQ1</span><div class="leds" id="leds1"></div></div>
+        <div class="bit-nums"><span></span><div class="nums"><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i></div></div>
+        <div class="bit-row"><span class="row-name">SEQ2</span><div class="leds" id="leds2"></div></div>
+      </div>
+
+      <div class="stack">
+        <div class="ctl" data-param="cvRange1" data-size="S" data-label="SEQ1 CV Range"></div>
+        <div class="ctl" data-param="cvRange2" data-size="S" data-label="SEQ2 CV Range"></div>
+      </div>
+
+      <div class="settings">
+        <label>Scale <select id="scale"></select></label>
+        <label>Clock <select data-param="clockSource"></select></label>
+        <label>Step <select data-param="clockDiv"></select></label>
+        <label>SEQ2 step <select data-param="clock2Div"></select></label>
+        <label class="check"><input type="checkbox" data-param="followTransport"> Follow transport</label>
+        <button class="small-btn" id="reroll" title="New random voltages for every bit that's on (rhythm kept)">Re-roll notes</button>
+      </div>
     </section>
-    <section class="buttons">
-      <button data-button="RunStop">RUN / STOP</button>
-      <button data-button="Trigger">TRIGGER</button>
-      <button data-button="Reset">RESET</button>
-      <button data-button="Flip1">BIT FLIP 1</button>
-      <button data-button="Flip2">BIT FLIP 2</button>
-      <button data-button="Chain">CHAIN SEQ</button>
-      <button data-action="reroll">RE-ROLL NOTES</button>
-    </section>
-    <footer id="status">connecting…</footer>
+
+    <aside class="sec bay">
+      <h2>Patch Bay</h2>
+      <p class="bay-note">Cables arrive in M5.<br>Every jack already runs on its normal connection.</p>
+    </aside>
+
+    <footer>
+      <span class="brand">CATACOMB</span>
+      <span class="tag">parallel generative synthesizer</span>
+      <span id="status"></span>
+    </footer>
+    <div id="readout" hidden></div>
   </main>
   <script type="module" src="src/main.js"></script>
 </body>

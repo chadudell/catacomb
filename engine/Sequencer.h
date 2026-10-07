@@ -61,6 +61,7 @@ public:
   void setPlayStep(int h, int step); // put head h on a step (host transport alignment)
   void advance();               // both heads +1, only while stopped; no trigger
   void flip(int seq);           // BIT FLIP pressed: flip the bit at the write head now
+  void toggleCell(int cell);    // flip any bit directly (clicking an LED in the UI)
   void setFlipHeld(int seq, bool isHeld) { flipHeld[seq] = isHeld; }
   void setFlipGate(int seq, bool high) { flipGate[seq] = high; } // BIT FLIP n jack, sampled per clock
   void decrementLength(int seq);// LENGTH: 8 → 7 → … → 1 → 8

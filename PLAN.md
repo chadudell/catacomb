@@ -105,7 +105,7 @@ zero latency, real-time safe, auval clean.
 | M1 | Sequencer engine + Panel (button combos) + tests, headless | done (47 tests) |
 | M2 | Voice DSP, normals only | done (15 engine tests, `tests/render.sh`) |
 | M3 | Plugin layer: params, host sync, MIDI, state | done (`tests/auhost.sh` against the installed AU) |
-| M4 | Panel UI: knobs, buttons, LEDs | |
+| M4 | Panel UI: knobs, buttons, LEDs | done |
 | M5 | Patch bay: routing + cables | |
 | M6 | Sound pass, sidechain input, starter presets, polish | |
 
@@ -132,5 +132,7 @@ zero latency, real-time safe, auval clean.
 - Transport start resets the voice (oscillator phases, noise, filter, envelopes) so every
   playback and bounce of a song sounds the same.
 - The quantizer's MIDI root is saved with the project.
+- Panel extras the hardware doesn't have: click a bit LED to flip it; menus for scale and clock;
+  a value readout while turning a knob; Re-roll notes (new voltages, same rhythm).
 - Scale (quant mode), CHAIN and RUN aren't host parameters: they live in the sequencer's memory
   (BUFFER saves them), so the panel and BUFFER stay the single source of truth.

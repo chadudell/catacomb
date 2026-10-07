@@ -423,3 +423,13 @@ TEST("state: a restored sequencer mutates identically (project reload / bounce)"
   }
   CHECK(std::memcmp(&a.memory().cells, &b.memory().cells, sizeof(SeqMemory::cells)) == 0);
 }
+
+TEST("toggleCell: clicking an LED flips that bit; on rolls a new voltage") {
+  auto s = fresh("00000000", "00000000");
+  s.toggleCell(10);
+  CHECK(bitsOf(s, 1) == "00100000");
+  CHECK(voltsAt(s, 10) != -1.5f);
+  s.toggleCell(10);
+  s.toggleCell(99); // ignored
+  CHECK(bitsOf(s, 1) == "00000000");
+}

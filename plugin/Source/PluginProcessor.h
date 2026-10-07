@@ -17,7 +17,9 @@
 
 namespace catacomb::plugin {
 
-class CatacombProcessor : public juce::AudioProcessor, private juce::Timer {
+class CatacombProcessor : public juce::AudioProcessor,
+                          private juce::Timer,
+                          private juce::AudioProcessorValueTreeState::Listener {
 public:
   CatacombProcessor();
   ~CatacombProcessor() override;
@@ -50,7 +52,7 @@ public:
   // ---- For the UI (message thread) ---------------------------------------------------
   // Things the UI can ask the sequencer to do.
   struct Command {
-    enum Type { Press, Release, SetQuantMode, Reroll } type;
+    enum Type { Press, Release, SetQuantMode, Reroll, ToggleCell } type;
     int value; // a catacomb::Button for Press/Release, else the argument
   };
   void send(Command c);
@@ -64,6 +66,12 @@ public:
   };
   SeqView seqView() const;
 
+  // Parameters, by id, in their own units (a choice is its index).
+  juce::var paramValues(bool onlyChanged); // {id: value}; onlyChanged: since the last call
+  juce::var paramMeta() const;             // {id: {name, min, max, def, choices?}}
+  void setParamFromUi(const juce::String& id, double value);
+  void gestureFromUi(const juce::String& id, bool begin);
+
   // Panel feedback (LED flashes) since the last call.
   int takePanelEvents(PanelEvent* dest, int max);
 
@@ -72,6 +80,10 @@ public:
 
 private:
   void timerCallback() override;
+  void parameterChanged(const juce::String& id, float) override;
+  std::atomic<bool> anyParamDirty{true};
+  juce::StringArray paramIds;
+  std::unique_ptr<std::atomic<bool>[]> paramDirty;
   void syncClock(int numSamples);
   void publishView();
 
