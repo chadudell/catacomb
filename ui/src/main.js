@@ -2,6 +2,7 @@ import { BitDisplay } from './bits.js';
 import { formatParam } from './format.js';
 import { createHost } from './host.js';
 import { Knob, setPanelScale } from './knob.js';
+import { PatchBay } from './patchbay.js';
 
 const PANEL_W = 1800;
 const PANEL_H = 720;
@@ -103,9 +104,11 @@ function buildMenus() {
     sel.addEventListener('change', () => setParam(id, Number(sel.value)));
     controls.set(id, { set: (v) => (sel.value = String(Math.round(v))) });
   }
-  const follow = document.querySelector('input[data-param="followTransport"]');
-  follow.addEventListener('change', () => setParam('followTransport', follow.checked ? 1 : 0));
-  controls.set('followTransport', { set: (v) => (follow.checked = v > 0.5) });
+  for (const box of document.querySelectorAll('input[type="checkbox"][data-param]')) {
+    const id = box.dataset.param;
+    box.addEventListener('change', () => setParam(id, box.checked ? 1 : 0));
+    controls.set(id, { set: (v) => (box.checked = v > 0.5) });
+  }
 
   const scale = document.getElementById('scale');
   SCALES.forEach((name, i) => scale.add(new Option(`${i + 1}. ${name}`, i)));
@@ -161,6 +164,25 @@ function applySeq(v) {
   status.textContent = `v${version} · ${v.bpm.toFixed(1)} BPM${v.hostPlaying ? ' · host playing' : ''}`;
 }
 
+// ---- Patch bay ------------------------------------------------------------------------------
+const tip = document.getElementById('tip');
+function showTip(t) {
+  if (!t) {
+    tip.hidden = true;
+    return;
+  }
+  const r = t.el.getBoundingClientRect();
+  const p = panel.getBoundingClientRect();
+  const s = p.width / PANEL_W;
+  tip.style.left = `${(r.left - p.left) / s - 10}px`;
+  tip.style.top = `${(r.top + r.height / 2 - p.top) / s}px`;
+  tip.querySelector('b').textContent = t.title;
+  tip.querySelector('span').textContent = t.body;
+  tip.hidden = false;
+}
+const bay = new PatchBay(document.getElementById('bay'), panel, PANEL_W, (cables) => host.post({ type: 'patch', cables }), showTip);
+document.getElementById('clearCables').addEventListener('click', () => bay.clear());
+
 // ---- Messages ------------------------------------------------------------------------------
 let built = false;
 host.onMessage((msg) => {
@@ -176,6 +198,10 @@ host.onMessage((msg) => {
         built = true;
       }
       applyParams(msg.params);
+      bay.setText(msg.cables);
+      break;
+    case 'patch':
+      bay.setText(msg.cables);
       break;
     case 'params':
       applyParams(msg.values);

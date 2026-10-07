@@ -22,8 +22,14 @@ public:
   Engine& operator=(const Engine&) = delete;
 
   void prepare(double sampleRate);
-  // Renders n mono samples (about ±0.5 full scale at the default volume).
-  void process(float* out, int n);
+  // Renders n mono samples (about ±0.5 full scale at the default volume). `sidechain`
+  // (optional, n samples) is the plugin's audio input, at the SIDECHAIN jack as ±10 V
+  // per full scale, so Catacomb's own output fed back in comes out at the same level.
+  void process(float* out, int n, const float* sidechain = nullptr);
+
+  // The manual's global settings (p. 46).
+  bool resetRecallsBuffer = false; // a RESET jack trigger also recalls the BUFFER
+  bool unipolarCvOut = false;      // SEQ CV outs 0…+5 V instead of ±5 V
 
   // Knobs and switches (the host writes these before each block) and the cables.
   Params params;
@@ -68,6 +74,7 @@ private:
   double input(In i, double normal) const;
   void updateControls();
   double tick(); // one oversampled sample
+  double sidechainOs[kOversample]{};
 
   Panel panel{seq};
   PanelEvent outbox[Panel::kMaxEvents];
@@ -110,6 +117,7 @@ private:
   dsp::DcBlocker foldDc, outDc;
   double vcwOut = 0, vcfOut = 0;
   dsp::Downsampler2x down4to2, down2to1;
+  dsp::Upsampler2x up1to2, up2to4;
 };
 
 } // namespace catacomb

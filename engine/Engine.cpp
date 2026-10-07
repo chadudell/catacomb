@@ -19,7 +19,10 @@ constexpr double kClockLowHz = 0.5, kClockHighHz = 30;    // TEMPO, steps per se
 constexpr double kEgPitchOctaves = 6;                     // EG1 AMT fully up, EG at 8 V
 constexpr double kMaxFmIndex = 6;                         // MOD VCO FM AMT fully up
 constexpr double kTrigSeconds = 0.005;                    // SEQ TRIG pulse width
-constexpr double kGateThreshold = 0.1;                    // rising-edge detection (V)
+// Rising-edge detection with hysteresis. Clocks, sync and reset are logic gates;
+// triggers carry their velocity in their height, so they fire on much less.
+constexpr double kGateHigh = 1.0, kGateLow = 0.5;
+constexpr double kTrigHigh = 0.05, kTrigLow = 0.02;
 
 double expRange(double knob, double lo, double hi) { return lo * std::pow(hi / lo, knob); }
 
@@ -34,12 +37,19 @@ double fold(double u, double k) { return std::sin(k * u) / std::sin(std::min(k, 
 // The MOD VCO's triangle, starting at 0 V and rising.
 double triangle(double p) { return p < 0.25 ? 4 * p : p < 0.75 ? 2 - 4 * p : 4 * p - 4; }
 
-bool risingEdge(double v, bool& was) {
-  const bool high = v > kGateThreshold;
-  const bool edge = high && !was;
-  was = high;
-  return edge;
+bool edge(double v, bool& was, double high, double low) {
+  if (was) {
+    if (v < low) was = false;
+    return false;
+  }
+  if (v > high) {
+    was = true;
+    return true;
+  }
+  return false;
 }
+bool risingEdge(double v, bool& was) { return edge(v, was, kGateHigh, kGateLow); }
+bool triggerEdge(double v, bool& was) { return edge(v, was, kTrigHigh, kTrigLow); }
 
 } // namespace
 
@@ -54,6 +64,8 @@ void Engine::prepare(double sampleRate) {
   // gentler; the second sets the final passband (flat to ~0.45·fs).
   down4to2.design(0.25);
   down2to1.design(0.05);
+  up1to2.design(0.05);
+  up2to4.design(0.25);
   foldDc.prepare(fsOs, 5.0);
   outDc.prepare(fs, 5.0);
   updateControls();
@@ -84,6 +96,8 @@ void Engine::resetVoice() {
   outDc.prepare(fs, 5.0);
   down4to2.reset();
   down2to1.reset();
+  up1to2.reset();
+  up2to4.reset();
   vcwOut = vcfOut = 0;
   internalTrig = 0;
   internalTrigSamples = 0;
@@ -165,7 +179,7 @@ void Engine::updateControls() {
   seq.cvRange[1] = p[Param::CvRange2];
 }
 
-void Engine::process(float* out, int n) {
+void Engine::process(float* out, int n, const float* sidechain) {
   for (int i = 0; i < n; i++) {
     panel.tick(now());
     // Panel events: TRIGGER is ours; everything else goes on to the UI.
@@ -178,8 +192,17 @@ void Engine::process(float* out, int n) {
 
     updateControls();
 
+    if (sidechain) {
+      double a, b;
+      up1to2.process(10.0 * sidechain[i], a, b);
+      up2to4.process(a, sidechainOs[0], sidechainOs[1]);
+      up2to4.process(b, sidechainOs[2], sidechainOs[3]);
+    }
     double os[kOversample];
-    for (double& s : os) s = tick();
+    for (int k = 0; k < kOversample; k++) {
+      outs[(int)Out::Sidechain] = sidechain ? sidechainOs[k] : 0.0;
+      os[k] = tick();
+    }
     const double y = down2to1.process(down4to2.process(os[0], os[1]), down4to2.process(os[2], os[3]));
 
     // ±5 V at the VCA jack → ±0.5 at the host, leaving headroom for folding and drive.
@@ -208,9 +231,12 @@ double Engine::tick() {
   // CLOCK 1 is normalled to CLOCK 2, unless the second line runs at its own rate.
   const double clk2 = input(In::Clock2, separate2 ? (clockPhase[1] < 0.5 ? 5.0 : 0.0) : clk1);
 
-  if (risingEdge(input(In::Reset, 0), resetWas)) seq.reset();
-  seq.setFlipGate(0, input(In::BitFlip1, 0) > 2.5);
-  seq.setFlipGate(1, input(In::BitFlip2, 0) > 2.5);
+  if (risingEdge(input(In::Reset, 0), resetWas)) {
+    seq.reset();
+    if (resetRecallsBuffer) seq.recallBuffer();
+  }
+  seq.setFlipGate(0, input(In::BitFlip1, 0) > kGateHigh);
+  seq.setFlipGate(1, input(In::BitFlip2, 0) > kGateHigh);
 
   // EG TRIG MIX: fully CCW only SEQ1 at full velocity, fully CW only SEQ2; equal at noon.
   const double vel1 = std::min(1.0, 2 * (1 - c.trigMix));
@@ -227,8 +253,11 @@ double Engine::tick() {
   }
   outs[(int)Out::Seq1Trig] = seqTrigSamples[0]-- > 0 ? 5.0 : 0.0;
   outs[(int)Out::Seq2Trig] = seqTrigSamples[1]-- > 0 ? 5.0 : 0.0;
-  outs[(int)Out::Seq1Cv] = seq.cv(0);
-  outs[(int)Out::Seq2Cv] = seq.cv(1);
+  // The SEQ CV jacks may be unipolar (a global setting); the internal SEQ AMT routing
+  // always gets the bipolar CV.
+  const double cv1 = seq.cv(0), cv2 = seq.cv(1);
+  outs[(int)Out::Seq1Cv] = unipolarCvOut ? (cv1 + 5.0) / 2.0 : cv1;
+  outs[(int)Out::Seq2Cv] = unipolarCvOut ? (cv2 + 5.0) / 2.0 : cv2;
 
   // The internal trigger is a short gate whose height carries the velocity, so it can be
   // replaced at the TRIGGER jack (and that, in turn, at EG2 TRIG) like the hardware.
@@ -249,8 +278,8 @@ double Engine::tick() {
   const double trig = input(In::Trigger, internalTrig);
   const double trig2 = input(In::Eg2Trig, trig);
   const double trigVel = std::min(1.0, trig / 5.0);
-  if (risingEdge(trig, trigWas)) eg1.trigger(trigVel);
-  if (risingEdge(trig2, eg2TrigWas)) eg2.trigger(std::min(1.0, trig2 / 5.0));
+  if (triggerEdge(trig, trigWas)) eg1.trigger(trigVel);
+  if (triggerEdge(trig2, eg2TrigWas)) eg2.trigger(std::min(1.0, trig2 / 5.0));
 
   const double e1 = eg1.tick(c.attackStep, c.eg1Decay);
   const double e2 = eg2.tick(c.attackStep, c.eg2Decay);
@@ -259,7 +288,6 @@ double Engine::tick() {
 
   // -- Oscillators ------------------------------------------------------------------------------
   const Params& p = smoothed;
-  const double cv1 = outs[(int)Out::Seq1Cv], cv2 = outs[(int)Out::Seq2Cv];
   const double eg1Oct = e1 / 8.0 * kEgPitchOctaves;
 
   const double mvcoOct = input(In::Mvco1VOct, 0) + p[Param::MvcoSeq2Amt] * cv2 + p[Param::MvcoEg1Amt] * eg1Oct;

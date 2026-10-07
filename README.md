@@ -32,6 +32,10 @@ In Logic or GarageBand: new Software Instrument track → Instrument slot →
 - Press play in Logic: the sequencers run, locked to the project's grid (Clock Division, default
   1/16). Stopped, they don't run; MIDI notes play the voice (and transpose when quantized).
 - Every knob is in Logic's automation lanes and the plugin's Controls view.
+- Patch bay: drag between jacks to patch (an input with no cable runs on its normal — hover a
+  jack to see it); drag a cable out of an input to move or remove it; double-click a jack to clear it.
+- SIDECHAIN: pick a track in the plugin header's **Side Chain** menu, then patch SIDECHAIN into
+  VCW IN / VCF IN / CLOCK 1 … to fold, filter or clock from another track.
 - The whole state (knobs, both sequencers' bits and voltages, BUFFER, the random generator)
   saves with the project, so it reopens and bounces exactly the same.
 

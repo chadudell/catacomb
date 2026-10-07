@@ -106,7 +106,7 @@ zero latency, real-time safe, auval clean.
 | M2 | Voice DSP, normals only | done (15 engine tests, `tests/render.sh`) |
 | M3 | Plugin layer: params, host sync, MIDI, state | done (`tests/auhost.sh` against the installed AU) |
 | M4 | Panel UI: knobs, buttons, LEDs | done |
-| M5 | Patch bay: routing + cables | |
+| M5 | Patch bay: routing + cables | done (13 patch tests + host save/load check) |
 | M6 | Sound pass, sidechain input, starter presets, polish | |
 
 ## Our choices (manual is silent)
@@ -132,6 +132,12 @@ zero latency, real-time safe, auval clean.
 - Transport start resets the voice (oscillator phases, noise, filter, envelopes) so every
   playback and bounce of a song sounds the same.
 - The quantizer's MIDI root is saved with the project.
+- Patch bay: our own arrangement (one row per function). 32 jacks = the hardware's 31 (MIDI is
+  the host's) + SIDECHAIN, the plugin's audio input (0 dBFS = ±10 V). Inputs sum multiple cables;
+  patching reads outputs one oversampled sample late (5 µs), so feedback patches are fine.
+- Gate inputs (clocks, sync, reset, BIT FLIP) have hysteresis: high above 1 V, low below 0.5 V.
+  Trigger inputs fire above 0.05 V (their height is the velocity).
+- The two global settings (RESET recalls BUFFER, unipolar CV outs) are plugin parameters.
 - Panel extras the hardware doesn't have: click a bit LED to flip it; menus for scale and clock;
   a value readout while turning a knob; Re-roll notes (new voltages, same rhythm).
 - Scale (quant mode), CHAIN and RUN aren't host parameters: they live in the sequencer's memory

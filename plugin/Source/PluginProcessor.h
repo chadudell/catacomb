@@ -14,6 +14,7 @@
 
 #include <array>
 #include <atomic>
+#include <vector>
 
 namespace catacomb::plugin {
 
@@ -75,6 +76,11 @@ public:
   // Panel feedback (LED flashes) since the last call.
   int takePanelEvents(PanelEvent* dest, int max);
 
+  // Patch cables, as text (StateText.h: "mvco>vcwIn,…"). The UI owns the order.
+  juce::String patchText() const;
+  void setPatchText(const juce::String& text);
+  std::atomic<int> patchGeneration{0}; // bumped when a loaded state replaces the cables
+
   // Bumped when the host loads a state, so an open editor can refresh.
   std::atomic<int> stateGeneration{0};
 
@@ -102,6 +108,13 @@ private:
   juce::SpinLock handoffLock;
   Sequencer::State pendingState{};
   bool statePending = false;
+  Patch pendingPatch;
+  bool patchPending = false;
+  mutable juce::CriticalSection patchLock; // message thread only
+  juce::String cables;
+  std::atomic<float>* resetRecalls = nullptr;
+  std::atomic<float>* unipolar = nullptr;
+  std::vector<float> sidechain; // the input bus, mono, copied before we overwrite it
 
   // Audio → UI / save
   mutable juce::SpinLock viewLock;

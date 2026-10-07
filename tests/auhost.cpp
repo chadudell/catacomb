@@ -6,6 +6,8 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
+#include <string>
 #include <vector>
 
 namespace {
@@ -147,6 +149,29 @@ struct Instance {
   }
 };
 
+// A copy of a saved state with its cables replaced. JUCE keeps the state as binary XML
+// under "jucePluginState": a 4-byte magic, a 4-byte length, then the XML text.
+CFPropertyListRef withCables(CFPropertyListRef state, const std::string& cables) {
+  auto dict = CFDictionaryCreateMutableCopy(nullptr, 0, (CFDictionaryRef)state);
+  auto data = (CFDataRef)CFDictionaryGetValue(dict, CFSTR("jucePluginState"));
+  if (!data || CFDataGetLength(data) < 8) return dict;
+  const auto* bytes = CFDataGetBytePtr(data);
+  std::string xml((const char*)bytes + 8, strnlen((const char*)bytes + 8, (size_t)CFDataGetLength(data) - 8));
+  const std::string key = "cables=\"";
+  const size_t at = xml.find(key);
+  if (at == std::string::npos) return dict;
+  const size_t end = xml.find('"', at + key.size());
+  xml.replace(at + key.size(), end - at - key.size(), cables);
+  std::vector<uint8_t> out(bytes, bytes + 4);
+  const uint32_t len = (uint32_t)xml.size() + 1;
+  for (int i = 0; i < 4; i++) out.push_back((uint8_t)(len >> (8 * i)));
+  out.insert(out.end(), xml.begin(), xml.end());
+  out.push_back(0);
+  CFDataRef newData = CFDataCreate(nullptr, out.data(), (CFIndex)out.size());
+  CFDictionarySetValue(dict, CFSTR("jucePluginState"), newData);
+  return dict;
+}
+
 double peak(const std::vector<float>& x) {
   double p = 0;
   for (float v : x) p = std::max(p, (double)std::abs(v));
@@ -221,6 +246,24 @@ int main() {
   for (size_t i = 0; i < pa.size(); i++) diff = std::max(diff, (double)std::abs(pa[i] - pb[i]));
   std::printf("      max difference between original and restored: %g (peak %.2f)\n", diff, peak(pa));
   check(peak(pa) > 0.05 && diff < 1e-6, "a restored project plays (and mutates) identically");
+
+  // Cables travel in the saved state: MOD VCO → VCW VCA CV opens the VCA with no trigger.
+  Instance c;
+  c.open();
+  c.setParam("MOD VCO Frequency", 0.55f);
+  check(peak(c.render(0.3)) < 1e-6, "unpatched and untriggered: silent");
+  CFPropertyListRef patched = withCables(c.saveState(), "mvco>vcwVcaCv");
+  Instance d;
+  d.open();
+  check(d.loadState(patched), "loads a state with a cable in it");
+  d.render(0.05);
+  const double p = peak(d.render(0.5));
+  std::printf("      peak with MOD VCO → VCW VCA: %.3f\n", p);
+  check(p > 0.02, "the loaded cable is live");
+  CFPropertyListRef resaved = d.saveState();
+  auto data = (CFDataRef)CFDictionaryGetValue((CFDictionaryRef)resaved, CFSTR("jucePluginState"));
+  const std::string xml((const char*)CFDataGetBytePtr(data) + 8, (size_t)CFDataGetLength(data) - 8);
+  check(xml.find("cables=\"mvco&gt;vcwVcaCv\"") != std::string::npos, "and is saved again with the project");
 
   std::printf("\n%s\n", failures ? "FAILED" : "all host checks passed");
   return failures ? 1 : 0;

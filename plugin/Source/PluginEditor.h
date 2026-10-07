@@ -29,6 +29,7 @@ private:
   juce::WebBrowserComponent browser;
   bool pageReady = false;
   juce::String lastView;
+  int seenPatchGeneration = 0;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CatacombEditor)
 };

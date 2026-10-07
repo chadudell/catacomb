@@ -116,4 +116,41 @@ bool decodeSequencer(const std::string& text, Sequencer::State& out) {
   return true; // Sequencer::setState() clamps anything out of range
 }
 
+std::string encodeCables(const std::vector<Cable>& cables) {
+  std::string out;
+  for (const auto& c : cables) {
+    if (!out.empty()) out += ',';
+    out += kOutNames[(int)c.out];
+    out += '>';
+    out += kInNames[(int)c.in];
+  }
+  return out;
+}
+
+std::vector<Cable> decodeCables(const std::string& text) {
+  std::vector<Cable> cables;
+  size_t start = 0;
+  while (start < text.size()) {
+    size_t end = text.find(',', start);
+    if (end == std::string::npos) end = text.size();
+    const std::string item = text.substr(start, end - start);
+    const size_t gt = item.find('>');
+    if (gt != std::string::npos) {
+      const int o = outByName(item.substr(0, gt).c_str());
+      const int i = inByName(item.substr(gt + 1).c_str());
+      bool dup = false;
+      for (const auto& c : cables) dup |= (int)c.out == o && (int)c.in == i;
+      if (o >= 0 && i >= 0 && !dup) cables.push_back({(Out)o, (In)i});
+    }
+    start = end + 1;
+  }
+  return cables;
+}
+
+Patch patchFrom(const std::vector<Cable>& cables) {
+  Patch p;
+  for (const auto& c : cables) p.connect(c.out, c.in);
+  return p;
+}
+
 } // namespace catacomb

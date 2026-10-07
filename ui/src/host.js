@@ -2,12 +2,13 @@
 // window.__JUCE__.backend; in a plain browser (UI development) there is no backend
 // and a small stand-in plays the part (demo.js).
 //
-//   UI → plugin: 'ready'; 'param' {id, value}; 'gesture' {id, begin};
+//   UI → plugin: 'ready'; 'param' {id, value}; 'gesture' {id, begin}; 'patch' {cables};
 //                'press' / 'release' {button}; 'toggleCell' {cell};
 //                'setQuantMode' {value}; 'reroll'
-//   plugin → UI: 'init' {version, meta: {id: {name, min, max, def, choices?}}, params: {id: value}},
+//   plugin → UI: 'init' {version, meta: {id: {name, min, max, def, choices?}}, params: {id: value}, cables},
 //                then 'batch' {msgs} of:
 //                'params' {values: {id: value}}      (automation, project loads)
+//                'patch' {cables}                    (a loaded project's cables: "out>in,…")
 //                'seq' {bits[16], volts[16], play[2], write[2], length[2], loopLength[2],
 //                       quantMode, chained, running, hasBuffer, hostPlaying, bpm}
 //                'panel' {event, value}              (LED feedback: showLength, bufferSaved, …)

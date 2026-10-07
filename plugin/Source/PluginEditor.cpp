@@ -103,6 +103,8 @@ void CatacombEditor::handle(const juce::var& msg) {
     init->setProperty("version", JucePlugin_VersionString);
     init->setProperty("meta", proc.paramMeta());
     init->setProperty("params", proc.paramValues(false));
+    init->setProperty("cables", proc.patchText());
+    seenPatchGeneration = proc.patchGeneration.load();
     emit(juce::var(init));
     timerCallback();
   } else if (type == "press" || type == "release") {
@@ -112,6 +114,8 @@ void CatacombEditor::handle(const juce::var& msg) {
     proc.setParamFromUi(msg["id"].toString(), (double)msg["value"]);
   } else if (type == "gesture") {
     proc.gestureFromUi(msg["id"].toString(), (bool)msg["begin"]);
+  } else if (type == "patch") {
+    proc.setPatchText(msg["cables"].toString());
   } else if (type == "toggleCell") {
     proc.send({CatacombProcessor::Command::ToggleCell, (int)msg["cell"]});
   } else if (type == "setQuantMode") {
@@ -154,6 +158,15 @@ void CatacombEditor::timerCallback() {
     auto* m = new juce::DynamicObject();
     m->setProperty("type", "params");
     m->setProperty("values", changed);
+    batch.add(juce::var(m));
+  }
+
+  // A loaded project replaced the cables.
+  if (const int gen = proc.patchGeneration.load(); gen != seenPatchGeneration) {
+    seenPatchGeneration = gen;
+    auto* m = new juce::DynamicObject();
+    m->setProperty("type", "patch");
+    m->setProperty("cables", proc.patchText());
     batch.add(juce::var(m));
   }
 

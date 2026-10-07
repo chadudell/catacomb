@@ -15,13 +15,18 @@ double fractional(double x) { return x - std::floor(x); }
 } // namespace
 
 CatacombProcessor::CatacombProcessor()
-    : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+    : AudioProcessor(BusesProperties()
+                         .withInput("Sidechain", juce::AudioChannelSet::stereo(), true)
+                         .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "Catacomb", makeLayout()) {
   for (int i = 0; i < kNumParams; i++) raw[(size_t)i] = apvts.getRawParameterValue(paramInfo((Param)i).id);
   clockSource = apvts.getRawParameterValue(ids::clockSource);
   clockDiv = apvts.getRawParameterValue(ids::clockDiv);
   clock2Div = apvts.getRawParameterValue(ids::clock2Div);
   follow = apvts.getRawParameterValue(ids::followTransport);
+  resetRecalls = apvts.getRawParameterValue(ids::resetRecallsBuffer);
+  unipolar = apvts.getRawParameterValue(ids::cvOutUnipolar);
+  sidechain.assign(4096, 0.0f);
 
   for (auto* param : getParameters())
     if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(param)) paramIds.add(withId->paramID);
@@ -43,11 +48,16 @@ CatacombProcessor::~CatacombProcessor() {
 
 bool CatacombProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
   const auto out = layouts.getMainOutputChannelSet();
-  return out == juce::AudioChannelSet::stereo() || out == juce::AudioChannelSet::mono();
+  const auto in = layouts.getMainInputChannelSet();
+  const auto ok = [](const juce::AudioChannelSet& s) {
+    return s == juce::AudioChannelSet::stereo() || s == juce::AudioChannelSet::mono();
+  };
+  return ok(out) && (in.isDisabled() || ok(in));
 }
 
-void CatacombProcessor::prepareToPlay(double sampleRate, int) {
+void CatacombProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
   engine.prepare(sampleRate);
+  sidechain.assign((size_t)std::max(samplesPerBlock, 4096), 0.0f);
   hostWasPlaying = false;
 }
 
@@ -62,6 +72,10 @@ void CatacombProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
     if (l.isLocked() && statePending) {
       engine.seq.setState(pendingState);
       statePending = false;
+    }
+    if (l.isLocked() && patchPending) {
+      engine.patch = pendingPatch;
+      patchPending = false;
     }
   }
 
@@ -84,6 +98,20 @@ void CatacombProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
   }
 
   for (int i = 0; i < kNumParams; i++) engine.params.v[i] = raw[(size_t)i]->load(std::memory_order_relaxed);
+  engine.resetRecallsBuffer = resetRecalls->load() > 0.5f;
+  engine.unipolarCvOut = unipolar->load() > 0.5f;
+
+  // The sidechain shares channels with the output, so take a (mono) copy first.
+  const float* side = nullptr;
+  if (getBusCount(true) > 0 && getBus(true, 0)->isEnabled() && n <= (int)sidechain.size()) {
+    const auto in = getBusBuffer(buffer, true, 0);
+    if (in.getNumChannels() > 0) {
+      const float* l = in.getReadPointer(0);
+      const float* r = in.getNumChannels() > 1 ? in.getReadPointer(1) : l;
+      for (int i = 0; i < n; i++) sidechain[(size_t)i] = 0.5f * (l[i] + r[i]);
+      side = sidechain.data();
+    }
+  }
 
   syncClock(n);
 
@@ -92,7 +120,7 @@ void CatacombProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
   int done = 0;
   for (const auto meta : midi) {
     const int at = juce::jlimit(done, n, meta.samplePosition);
-    if (at > done) engine.process(left + done, at - done);
+    if (at > done) engine.process(left + done, at - done, side ? side + done : nullptr);
     done = at;
     const auto m = meta.getMessage();
     if (m.isNoteOn()) {
@@ -110,7 +138,7 @@ void CatacombProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
       engine.seq.setRunning(true);
     }
   }
-  if (done < n) engine.process(left + done, n - done);
+  if (done < n) engine.process(left + done, n - done, side ? side + done : nullptr);
   midi.clear();
 
   for (int c = 1; c < buffer.getNumChannels(); c++) buffer.copyFrom(c, 0, buffer, 0, 0, n);
@@ -309,6 +337,22 @@ void CatacombProcessor::timerCallback() {
   }
 }
 
+juce::String CatacombProcessor::patchText() const {
+  const juce::ScopedLock l(patchLock);
+  return cables;
+}
+
+void CatacombProcessor::setPatchText(const juce::String& text) {
+  const auto list = decodeCables(text.toStdString());
+  {
+    const juce::ScopedLock l(patchLock);
+    cables = juce::String(encodeCables(list)); // normalised: unknown jacks dropped
+  }
+  const juce::SpinLock::ScopedLockType h(handoffLock);
+  pendingPatch = patchFrom(list);
+  patchPending = true;
+}
+
 juce::AudioProcessorEditor* CatacombProcessor::createEditor() { return new CatacombEditor(*this); }
 
 // ---- State ---------------------------------------------------------------------------------
@@ -323,6 +367,9 @@ void CatacombProcessor::getStateInformation(juce::MemoryBlock& dest) {
   juce::ValueTree seq("Sequencer");
   seq.setProperty("text", juce::String(encodeSequencer(seqState)), nullptr);
   state.appendChild(seq, nullptr);
+  juce::ValueTree patch("Patch");
+  patch.setProperty("cables", patchText(), nullptr);
+  state.appendChild(patch, nullptr);
   state.setProperty("version", JucePlugin_VersionString, nullptr);
   if (auto xml = state.createXml()) copyXmlToBinary(*xml, dest);
 }
@@ -334,7 +381,11 @@ void CatacombProcessor::setStateInformation(const void* data, int size) {
   if (!state.hasType(apvts.state.getType())) return;
   auto seq = state.getChildWithName("Sequencer");
   state.removeChild(seq, nullptr);
+  auto patch = state.getChildWithName("Patch");
+  state.removeChild(patch, nullptr);
   apvts.replaceState(state);
+  setPatchText(patch.isValid() ? patch["cables"].toString() : juce::String());
+  patchGeneration++;
 
   Sequencer::State decoded = seqView().state;
   if (seq.isValid() && decodeSequencer(seq["text"].toString().toStdString(), decoded)) {

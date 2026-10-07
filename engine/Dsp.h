@@ -95,61 +95,62 @@ struct DecayEnvelope {
   }
 };
 
-// ---- Half-band decimator -------------------------------------------------------------------
+// ---- Half-band resampling ------------------------------------------------------------------
 
-// 2× polyphase IIR half-band decimator (two allpass chains; Laurent de Soras' design,
-// as in his HIIR library). Low latency, no pre-ringing; coefficients are computed for a
-// given transition bandwidth when the engine is prepared.
-class Downsampler2x {
-public:
-  static constexpr int kCoefs = 10;
+// Polyphase IIR half-band filters (two allpass chains; Laurent de Soras' design, as in
+// his HIIR library). Low latency, no pre-ringing. The coefficients come from the
+// transition bandwidth.
+constexpr int kHalfbandCoefs = 10;
 
-  void design(double transition) {
-    // Elliptic-filter parameters from the transition bandwidth.
-    double k = std::tan((1 - transition * 2) * kPi / 4);
-    k *= k;
-    const double kksqrt = std::pow(1 - k * k, 0.25);
-    const double e = 0.5 * (1 - kksqrt) / (1 + kksqrt);
-    const double e4 = e * e * e * e;
-    const double q = e * (1 + e4 * (2 + e4 * (15 + 150 * e4)));
-    const int order = kCoefs * 2 + 1;
-    for (int i = 0; i < kCoefs; i++) {
-      const int c = i + 1;
-      double num = 0, den = 0;
-      for (int n = 0, sign = 1; n < 64; n++, sign = -sign) {
-        const double t = std::pow(q, n * (n + 1)) * std::sin((n * 2 + 1) * c * kPi / order) * sign;
-        num += t;
-        if (std::abs(t) < 1e-100) break;
-      }
-      for (int n = 1, sign = -1; n < 64; n++, sign = -sign) {
-        const double t = std::pow(q, n * n) * std::cos(n * 2 * c * kPi / order) * sign;
-        den += t;
-        if (std::abs(t) < 1e-100) break;
-      }
-      const double ww = num * std::pow(q, 0.25) / (den + 0.5);
-      const double wwsq = ww * ww;
-      const double r = std::sqrt((1 - wwsq * k) * (1 - wwsq / k)) / (1 + wwsq);
-      coef[i] = (1 - r) / (1 + r);
+inline void designHalfband(double transition, double* coef) {
+  // Elliptic-filter parameters from the transition bandwidth.
+  double k = std::tan((1 - transition * 2) * kPi / 4);
+  k *= k;
+  const double kksqrt = std::pow(1 - k * k, 0.25);
+  const double e = 0.5 * (1 - kksqrt) / (1 + kksqrt);
+  const double e4 = e * e * e * e;
+  const double q = e * (1 + e4 * (2 + e4 * (15 + 150 * e4)));
+  const int order = kHalfbandCoefs * 2 + 1;
+  for (int i = 0; i < kHalfbandCoefs; i++) {
+    const int c = i + 1;
+    double num = 0, den = 0;
+    for (int n = 0, sign = 1; n < 64; n++, sign = -sign) {
+      const double t = std::pow(q, n * (n + 1)) * std::sin((n * 2 + 1) * c * kPi / order) * sign;
+      num += t;
+      if (std::abs(t) < 1e-100) break;
     }
+    for (int n = 1, sign = -1; n < 64; n++, sign = -sign) {
+      const double t = std::pow(q, n * n) * std::cos(n * 2 * c * kPi / order) * sign;
+      den += t;
+      if (std::abs(t) < 1e-100) break;
+    }
+    const double ww = num * std::pow(q, 0.25) / (den + 0.5);
+    const double wwsq = ww * ww;
+    const double r = std::sqrt((1 - wwsq * k) * (1 - wwsq / k)) / (1 + wwsq);
+    coef[i] = (1 - r) / (1 + r);
+  }
+}
+
+class HalfbandChains {
+public:
+  void design(double transition) {
+    designHalfband(transition, coef);
     reset();
   }
-
   void reset() {
     std::fill(std::begin(x), std::end(x), 0.0);
     std::fill(std::begin(y), std::end(y), 0.0);
   }
+  double coef[kHalfbandCoefs]{};
 
-  // Two input samples (in time order) → one output sample.
-  double process(double first, double second) {
-    double a = second, b = first; // path 0 takes the later sample, path 1 the earlier
-    for (int i = 0; i < kCoefs; i += 2) {
+protected:
+  // Runs `a` through the even-indexed allpasses and `b` through the odd ones.
+  void run(double& a, double& b) {
+    for (int i = 0; i < kHalfbandCoefs; i += 2) {
       a = stage(i, a);
       b = stage(i + 1, b);
     }
-    return 0.5 * (a + b);
   }
-
-  double coef[kCoefs]{};
 
 private:
   double stage(int i, double in) {
@@ -158,7 +159,28 @@ private:
     y[i] = out;
     return out;
   }
-  double x[kCoefs]{}, y[kCoefs]{};
+  double x[kHalfbandCoefs]{}, y[kHalfbandCoefs]{};
+};
+
+// Two input samples (in time order) → one output sample at half the rate.
+class Downsampler2x : public HalfbandChains {
+public:
+  double process(double first, double second) {
+    double a = second, b = first; // path 0 takes the later sample, path 1 the earlier
+    run(a, b);
+    return 0.5 * (a + b);
+  }
+};
+
+// One input sample → two output samples (in time order) at twice the rate.
+class Upsampler2x : public HalfbandChains {
+public:
+  void process(double in, double& first, double& second) {
+    double a = in, b = in;
+    run(a, b);
+    first = a;
+    second = b;
+  }
 };
 
 // ---- Noise ---------------------------------------------------------------------------------

@@ -129,8 +129,13 @@
     </section>
 
     <aside class="sec bay">
-      <h2>Patch Bay</h2>
-      <p class="bay-note">Cables arrive in M5.<br>Every jack already runs on its normal connection.</p>
+      <h2>Patch Bay <span class="key-legend"><i class="dot in"></i>in <i class="dot out"></i>out</span></h2>
+      <div id="bay"></div>
+      <div class="bay-foot">
+        <label class="check"><input type="checkbox" data-param="resetRecallsBuffer"> Reset recalls buffer</label>
+        <label class="check"><input type="checkbox" data-param="cvOutUnipolar"> Unipolar CV outs</label>
+        <button class="small-btn" id="clearCables" title="Remove every cable (all jacks back on their normals)">Clear</button>
+      </div>
     </aside>
 
     <footer>
@@ -139,6 +144,7 @@
       <span id="status"></span>
     </footer>
     <div id="readout" hidden></div>
+    <div id="tip" hidden><b></b><span></span></div>
   </main>
   <script type="module" src="src/main.js"></script>
 </body>
