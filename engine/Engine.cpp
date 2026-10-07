@@ -59,6 +59,38 @@ void Engine::prepare(double sampleRate) {
   updateControls();
 }
 
+double Engine::tempoHz(double knob) { return expRange(knob, kClockLowHz, kClockHighHz); }
+
+void Engine::setClockRates(double hz1, double hz2) {
+  clockHz[0] = hz1;
+  clockHz[1] = hz2;
+}
+
+void Engine::armClocks(bool fireNow) {
+  clk1Was = fireNow ? false : clockPhase[0] < 0.5;
+  clk2Was = fireNow ? false : (clockHz[1] > 0 ? clockPhase[1] : clockPhase[0]) < 0.5;
+}
+
+void Engine::resetVoice() {
+  vcoPhase = mvcoPhase = 0;
+  white = dsp::WhiteNoise{};
+  noiseLp = dsp::OnePoleLP{};
+  eg1 = dsp::DecayEnvelope{};
+  eg2 = dsp::DecayEnvelope{};
+  vcf.reset();
+  foldDc = dsp::DcBlocker{};
+  outDc = dsp::DcBlocker{};
+  foldDc.prepare(fsOs, 5.0);
+  outDc.prepare(fs, 5.0);
+  down4to2.reset();
+  down2to1.reset();
+  vcwOut = vcfOut = 0;
+  internalTrig = 0;
+  internalTrigSamples = 0;
+  pendingVelocity = 0;
+  trigWas = eg2TrigWas = syncWas = false;
+}
+
 void Engine::noteOn(int note, double velocity) {
   seq.rootSemis = note - 60; // only heard while quantized (Quantizer.h)
   if (!seq.isRunning()) pendingVelocity = std::max(pendingVelocity, velocity);
@@ -84,7 +116,7 @@ double Engine::input(In i, double normal) const {
 
 void Engine::updateControls() {
   for (int i = 0; i < kNumParams; i++) {
-    if (paramInfo((Param)i).smooth) smoothed.v[i] += smoothCoef * (params.v[i] - smoothed.v[i]);
+    if (paramInfo((Param)i).smooth) smoothed.v[i] += (float)(smoothCoef * (params.v[i] - smoothed.v[i]));
     else smoothed.v[i] = params.v[i];
   }
   const Params& p = smoothed;
@@ -163,13 +195,18 @@ double Engine::tick() {
   const double trigOs = kTrigSeconds * fsOs;
 
   // -- Clock and sequencers -----------------------------------------------------------------
-  clockPhase += c.clockHz / fsOs;
-  if (clockPhase >= 1) clockPhase -= std::floor(clockPhase);
-  clockHigh = clockPhase < 0.5;
-  outs[(int)Out::Clock] = clockHigh ? 5.0 : 0.0;
+  // Each line's gate goes high as its phase wraps (a step) and low halfway through.
+  const bool separate2 = clockHz[1] > 0;
+  for (int l = 0; l < (separate2 ? 2 : 1); l++) {
+    const double hz = l == 0 && clockHz[0] <= 0 ? c.clockHz : clockHz[l];
+    clockPhase[l] += hz / fsOs;
+    if (clockPhase[l] >= 1) clockPhase[l] -= std::floor(clockPhase[l]);
+  }
+  outs[(int)Out::Clock] = clockPhase[0] < 0.5 ? 5.0 : 0.0;
 
   const double clk1 = input(In::Clock1, outs[(int)Out::Clock]);
-  const double clk2 = input(In::Clock2, clk1); // CLOCK 1 is normalled to CLOCK 2
+  // CLOCK 1 is normalled to CLOCK 2, unless the second line runs at its own rate.
+  const double clk2 = input(In::Clock2, separate2 ? (clockPhase[1] < 0.5 ? 5.0 : 0.0) : clk1);
 
   if (risingEdge(input(In::Reset, 0), resetWas)) seq.reset();
   seq.setFlipGate(0, input(In::BitFlip1, 0) > 2.5);

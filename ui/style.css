@@ -59,3 +59,19 @@ h1 {
 .led.on { background: var(--led-on); box-shadow: 0 0 12px var(--led-on); }
 
 footer { margin-top: auto; color: var(--dim); font-size: 18px; }
+
+.led.play { outline: 3px solid #4fd16b; outline-offset: 3px; }
+.led.out { opacity: 0.25; }
+
+.buttons { display: flex; gap: 16px; flex-wrap: wrap; }
+.buttons button {
+  font: 700 16px "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  background: #26231f;
+  border: 1px solid #3a3631;
+  border-radius: 6px;
+  padding: 14px 20px;
+  cursor: pointer;
+}
+.buttons button:active { background: #3a3631; }

@@ -104,7 +104,7 @@ zero latency, real-time safe, auval clean.
 | M0 | Skeleton: CMake/JUCE, `build.sh install`, auval; empty instrument loads in Logic | done (auval passes) |
 | M1 | Sequencer engine + Panel (button combos) + tests, headless | done (47 tests) |
 | M2 | Voice DSP, normals only | done (15 engine tests, `tests/render.sh`) |
-| M3 | Plugin layer: params, host sync, MIDI, state | |
+| M3 | Plugin layer: params, host sync, MIDI, state | done (`tests/auhost.sh` against the installed AU) |
 | M4 | Panel UI: knobs, buttons, LEDs | |
 | M5 | Patch bay: routing + cables | |
 | M6 | Sound pass, sidechain input, starter presets, polish | |
@@ -126,3 +126,11 @@ zero latency, real-time safe, auval clean.
   from the EG); mixer channels clean to 5 V, then a soft knee.
 - Wavefolder: sin(k·u)/sin(min(k, π/2)), k from 0.05 (clean) to ~15; 4× oversampling.
 - Output: ±5 V at the VCA jack = ±0.5 at the host.
+- Clock: *Host Tempo* (default) locks steps to Logic's grid while it plays (bar 1 beat 1 = bit 1)
+  and free-runs at the project tempo while stopped; *Tempo Knob* is the hardware's internal clock.
+  *Follow Transport* (default on) starts/stops the sequencers with Logic.
+- Transport start resets the voice (oscillator phases, noise, filter, envelopes) so every
+  playback and bounce of a song sounds the same.
+- The quantizer's MIDI root is saved with the project.
+- Scale (quant mode), CHAIN and RUN aren't host parameters: they live in the sequencer's memory
+  (BUFFER saves them), so the panel and BUFFER stay the single source of truth.

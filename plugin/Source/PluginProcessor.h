@@ -1,16 +1,26 @@
-// Catacomb AU — the processor. M0: a silent instrument that owns the engine's
-// sequencer, so the build, the WebView bridge and auval can be proven end to end.
+// Catacomb AU — the processor: host parameters → catacomb::Engine, MIDI in, the clock
+// locked to Logic's tempo and transport, and lock-free plumbing to and from the UI.
+//
+// Threads: the engine (and its sequencer) belong to the audio thread. The UI talks to
+// it through a command FIFO; the audio thread publishes a snapshot of the sequencer
+// for the UI and for saving. A loaded state is handed over under a lock the audio
+// thread only ever try-locks.
 #pragma once
 
-#include "Sequencer.h"
+#include "Engine.h"
+#include "Parameters.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <array>
+#include <atomic>
+
 namespace catacomb::plugin {
 
-class CatacombProcessor : public juce::AudioProcessor {
+class CatacombProcessor : public juce::AudioProcessor, private juce::Timer {
 public:
   CatacombProcessor();
+  ~CatacombProcessor() override;
 
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
   void releaseResources() override {}
@@ -35,11 +45,65 @@ public:
   void getStateInformation(juce::MemoryBlock&) override;
   void setStateInformation(const void*, int) override;
 
-  // For the editor (message thread). M0 only reads it once, at page load.
-  Sequencer::State sequencerSnapshot() const;
+  juce::AudioProcessorValueTreeState apvts;
+
+  // ---- For the UI (message thread) ---------------------------------------------------
+  // Things the UI can ask the sequencer to do.
+  struct Command {
+    enum Type { Press, Release, SetQuantMode, Reroll } type;
+    int value; // a catacomb::Button for Press/Release, else the argument
+  };
+  void send(Command c);
+
+  // What the UI shows: the sequencer's memory and where its heads are.
+  struct SeqView {
+    Sequencer::State state{};
+    int playCell[2]{}, writeCell[2]{}, loopLength[2]{};
+    bool hostPlaying = false;
+    double bpm = 120;
+  };
+  SeqView seqView() const;
+
+  // Panel feedback (LED flashes) since the last call.
+  int takePanelEvents(PanelEvent* dest, int max);
+
+  // Bumped when the host loads a state, so an open editor can refresh.
+  std::atomic<int> stateGeneration{0};
 
 private:
-  Sequencer seq;
+  void timerCallback() override;
+  void syncClock(int numSamples);
+  void publishView();
+
+  Engine engine;
+  std::array<std::atomic<float>*, kNumParams> raw{};
+  std::atomic<float>* clockSource = nullptr;
+  std::atomic<float>* clockDiv = nullptr;
+  std::atomic<float>* clock2Div = nullptr;
+  std::atomic<float>* follow = nullptr;
+
+  // UI → audio
+  juce::AbstractFifo commandFifo{256};
+  std::array<Command, 256> commands{};
+
+  // Loaded state → audio
+  juce::SpinLock handoffLock;
+  Sequencer::State pendingState{};
+  bool statePending = false;
+
+  // Audio → UI / save
+  mutable juce::SpinLock viewLock;
+  SeqView view;
+  int samplesSinceView = 0;
+  juce::AbstractFifo eventFifo{128};
+  std::array<PanelEvent, 128> events{};
+  std::atomic<int> clockDivisionDelta{0}; // from BIT SHIFT 2 + BIT FLIP 2 / LENGTH 2
+
+  // Transport
+  bool hostWasPlaying = false;
+  double expectedPpq = 0;
+  double currentBpm = 120;
+  bool currentlyPlaying = false;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CatacombProcessor)
 };

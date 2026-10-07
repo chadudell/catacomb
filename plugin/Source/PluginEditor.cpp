@@ -20,6 +20,31 @@ const char* mimeFor(const juce::String& path) {
   return "application/octet-stream";
 }
 
+// The UI names buttons as in the Button enum.
+constexpr const char* kButtonNames[(int)Button::Count] = {
+    "Buffer", "Reset", "Advance", "Chain", "RunStop", "Trigger",
+    "Length1", "Shift1", "Flip1", "Length2", "Shift2", "Flip2",
+};
+
+int buttonIndex(const juce::String& name) {
+  for (int i = 0; i < (int)Button::Count; i++)
+    if (name == kButtonNames[i]) return i;
+  return -1;
+}
+
+const char* eventName(PanelEvent::Type t) {
+  switch (t) {
+    case PanelEvent::ManualTrigger: return "trigger";
+    case PanelEvent::ClockDivision: return "clockDivision";
+    case PanelEvent::ShowLength: return "showLength";
+    case PanelEvent::ShowQuantMode: return "showQuantMode";
+    case PanelEvent::BufferSaved: return "bufferSaved";
+    case PanelEvent::BufferRecalled: return "bufferRecalled";
+    case PanelEvent::Cleared: return "cleared";
+  }
+  return "";
+}
+
 } // namespace
 
 CatacombEditor::CatacombEditor(CatacombProcessor& p)
@@ -52,7 +77,10 @@ CatacombEditor::CatacombEditor(CatacombProcessor& p)
   setResizeLimits(1000, 400, 2800, 1120);
   if (auto* c = getConstrainer()) c->setFixedAspectRatio(2.5);
   setSize(1400, 560);
+  startTimerHz(15);
 }
+
+CatacombEditor::~CatacombEditor() { stopTimer(); }
 
 void CatacombEditor::resized() { browser.setBounds(getLocalBounds()); }
 
@@ -66,18 +94,77 @@ std::optional<juce::WebBrowserComponent::Resource> CatacombEditor::resource(cons
 void CatacombEditor::emit(const juce::var& msg) { browser.emitEventIfBrowserIsVisible(kEvent, msg); }
 
 void CatacombEditor::handle(const juce::var& msg) {
-  if (msg["type"].toString() != "ready") return;
+  const auto type = msg["type"].toString();
+  if (type == "ready") {
+    pageReady = true;
+    lastView.clear();
+    auto* init = new juce::DynamicObject();
+    init->setProperty("type", "init");
+    init->setProperty("version", JucePlugin_VersionString);
+    emit(juce::var(init));
+    timerCallback();
+  } else if (type == "press" || type == "release") {
+    if (const int b = buttonIndex(msg["button"].toString()); b >= 0)
+      proc.send({type == "press" ? CatacombProcessor::Command::Press : CatacombProcessor::Command::Release, b});
+  } else if (type == "setQuantMode") {
+    proc.send({CatacombProcessor::Command::SetQuantMode, (int)msg["value"]});
+  } else if (type == "reroll") {
+    proc.send({CatacombProcessor::Command::Reroll, 0});
+  }
+}
 
-  // M0: hand the page the sequencer's bits so the LEDs prove the bridge works.
-  const auto st = proc.sequencerSnapshot();
-  juce::Array<juce::var> bits;
-  for (const auto& c : st.mem.cells) bits.add(c.on);
-  auto* init = new juce::DynamicObject();
-  init->setProperty("type", "init");
-  init->setProperty("version", JucePlugin_VersionString);
-  init->setProperty("bits", bits);
-  init->setProperty("quantMode", st.mem.quantMode);
-  emit(juce::var(init));
+juce::var CatacombEditor::viewMessage(const CatacombProcessor::SeqView& v) const {
+  juce::Array<juce::var> bits, volts;
+  for (const auto& c : v.state.mem.cells) {
+    bits.add(c.on);
+    volts.add(std::round(c.volts * 1000.0) / 1000.0);
+  }
+  auto pair = [](const int* a) { return juce::Array<juce::var>{a[0], a[1]}; };
+  auto* m = new juce::DynamicObject();
+  m->setProperty("type", "seq");
+  m->setProperty("bits", bits);
+  m->setProperty("volts", volts);
+  m->setProperty("play", pair(v.playCell));
+  m->setProperty("write", pair(v.writeCell));
+  m->setProperty("length", pair(v.state.mem.length));
+  m->setProperty("loopLength", pair(v.loopLength));
+  m->setProperty("quantMode", v.state.mem.quantMode);
+  m->setProperty("chained", v.state.mem.chained);
+  m->setProperty("running", v.state.running);
+  m->setProperty("hasBuffer", v.state.bufferValid);
+  m->setProperty("hostPlaying", v.hostPlaying);
+  m->setProperty("bpm", v.bpm);
+  return juce::var(m);
+}
+
+void CatacombEditor::timerCallback() {
+  if (!pageReady) return;
+  juce::Array<juce::var> batch;
+
+  // The sequencer view, only when something changed.
+  const auto view = viewMessage(proc.seqView());
+  const auto json = juce::JSON::toString(view, true);
+  if (json != lastView) {
+    lastView = json;
+    batch.add(view);
+  }
+
+  PanelEvent ev[32];
+  const int n = proc.takePanelEvents(ev, 32);
+  for (int i = 0; i < n; i++) {
+    auto* m = new juce::DynamicObject();
+    m->setProperty("type", "panel");
+    m->setProperty("event", eventName(ev[i].type));
+    m->setProperty("value", ev[i].value);
+    batch.add(juce::var(m));
+  }
+
+  // One script call per tick (each call wakes WebKit's helper processes).
+  if (batch.isEmpty()) return;
+  auto* m = new juce::DynamicObject();
+  m->setProperty("type", "batch");
+  m->setProperty("msgs", batch);
+  emit(juce::var(m));
 }
 
 } // namespace catacomb::plugin

@@ -18,7 +18,9 @@ tests/     engine unit tests
 
 ```
 tests/run.sh               # engine unit tests (clang only)
+tests/render.sh            # render example patches to renders/*.wav
 plugin/build.sh install    # build the AU, install it, validate with auval
+tests/auhost.sh            # load the installed AU like Logic does: transport, MIDI, save/restore
 ```
 
 Needs Xcode or the Command Line Tools and CMake (`python3 -m pip install --user cmake ninja`).
@@ -26,6 +28,12 @@ JUCE 8: set `JUCE_DIR`, or it uses `~/Documents/MeatThumb Synth/JUCE`, or fetche
 
 In Logic or GarageBand: new Software Instrument track → Instrument slot →
 **AU Instruments → Catacomb → Catacomb**.
+
+- Press play in Logic: the sequencers run, locked to the project's grid (Clock Division, default
+  1/16). Stopped, they don't run; MIDI notes play the voice (and transpose when quantized).
+- Every knob is in Logic's automation lanes and the plugin's Controls view.
+- The whole state (knobs, both sequencers' bits and voltages, BUFFER, the random generator)
+  saves with the project, so it reopens and bounces exactly the same.
 
 The panel can be developed in a browser too: serve `ui/` (e.g. `python3 -m http.server -d ui 5180`);
 without the plugin it runs on demo data.

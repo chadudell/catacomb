@@ -18,6 +18,8 @@ public:
   static constexpr int kOversample = 4;
 
   Engine();
+  Engine(const Engine&) = delete; // the panel refers to this engine's sequencer
+  Engine& operator=(const Engine&) = delete;
 
   void prepare(double sampleRate);
   // Renders n mono samples (about ±0.5 full scale at the default volume).
@@ -31,6 +33,24 @@ public:
   Sequencer seq;
   void press(Button b) { panel.press(b, now()); }
   void release(Button b) { panel.release(b, now()); }
+
+  // ---- Clock ---------------------------------------------------------------------------
+  // Two clock lines: line 0 is the master CLOCK (normalled to CLOCK 1), line 1 can run at
+  // its own rate into CLOCK 2 (standing in for a cable from a second clock).
+  //   hz1 <= 0: the TEMPO knob sets line 0.   hz2 <= 0: CLOCK 2 follows CLOCK 1.
+  void setClockRates(double hz1, double hz2);
+  // Lock a line to a host grid: phase 0…1 through the current step (0 = on a step).
+  void setClockPhase(int line, double phase) { clockPhase[line] = phase - std::floor(phase); }
+  double clockPhaseOf(int line) const { return clockPhase[line]; }
+  // After a jump (transport start/locate): forget the clock inputs' last state, so the
+  // next tick fires a step if `fireNow` (we're on a step boundary), and doesn't otherwise.
+  void armClocks(bool fireNow);
+  static double tempoHz(double knob);
+
+  // Oscillator phases, noise, filter and envelopes back to power-on. The plugin calls
+  // this when the host's transport starts, so every playback or bounce of a song
+  // sounds the same, whatever was played before.
+  void resetVoice();
 
   // MIDI note on (manual p. 47): moves the quantizer's root; when stopped, also plays.
   void noteOn(int note, double velocity);
@@ -73,8 +93,8 @@ private:
 
   // State
   double outs[kNumOuts]{};
-  double clockPhase = 0;
-  bool clockHigh = false;
+  double clockPhase[2] = {0, 0};
+  double clockHz[2] = {0, 0};
   bool clk1Was = false, clk2Was = false, resetWas = false;
   bool trigWas = false, eg2TrigWas = false, syncWas = false;
   int seqTrigSamples[2] = {0, 0};

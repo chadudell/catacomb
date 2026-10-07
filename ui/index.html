@@ -10,11 +10,20 @@
   <main id="panel">
     <header>
       <h1>CATACOMB</h1>
-      <p class="sub">parallel generative synthesizer</p>
+      <p class="sub">parallel generative synthesizer · test panel (the full panel arrives in M4)</p>
     </header>
     <section class="bits">
       <div class="row"><span class="label">SEQ1</span><div class="leds" id="seq1"></div></div>
       <div class="row"><span class="label">SEQ2</span><div class="leds" id="seq2"></div></div>
+    </section>
+    <section class="buttons">
+      <button data-button="RunStop">RUN / STOP</button>
+      <button data-button="Trigger">TRIGGER</button>
+      <button data-button="Reset">RESET</button>
+      <button data-button="Flip1">BIT FLIP 1</button>
+      <button data-button="Flip2">BIT FLIP 2</button>
+      <button data-button="Chain">CHAIN SEQ</button>
+      <button data-action="reroll">RE-ROLL NOTES</button>
     </section>
     <footer id="status">connecting…</footer>
   </main>

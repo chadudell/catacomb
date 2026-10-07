@@ -128,8 +128,8 @@ public:
       }
       const double ww = num * std::pow(q, 0.25) / (den + 0.5);
       const double wwsq = ww * ww;
-      const double x = std::sqrt((1 - wwsq * k) * (1 - wwsq / k)) / (1 + wwsq);
-      coef[i] = (1 - x) / (1 + x);
+      const double r = std::sqrt((1 - wwsq * k) * (1 - wwsq / k)) / (1 + wwsq);
+      coef[i] = (1 - r) / (1 + r);
     }
     reset();
   }

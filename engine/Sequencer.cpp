@@ -101,6 +101,11 @@ void Sequencer::reset() {
   refreshHeld(1);
 }
 
+void Sequencer::setPlayStep(int h, int step) {
+  pos[h] = wrap(step, loopLength(h));
+  refreshHeld(h);
+}
+
 void Sequencer::advance() {
   if (running) return;
   for (int h = 0; h < 2; h++) pos[h] = wrap(pos[h] + 1, loopLength(h));
@@ -246,6 +251,7 @@ Sequencer::State Sequencer::state() const {
   s.held[0] = held[0];
   s.held[1] = held[1];
   s.running = running;
+  s.rootSemis = rootSemis;
   std::memcpy(s.rng, rng.s, sizeof s.rng);
   return s;
 }
@@ -270,6 +276,7 @@ void Sequencer::setState(const State& s) {
       for (int c = 0; c < kCells; c++) m->origin[c] = (uint8_t)c;
   }
   running = s.running;
+  rootSemis = std::clamp(s.rootSemis, -60, 67);
   std::memcpy(rng.s, s.rng, sizeof s.rng);
   clampHeads();
 }

@@ -58,6 +58,7 @@ public:
   void setRunning(bool r) { running = r; }
   bool isRunning() const { return running; }
   void reset();                 // both play heads → bit 1 (write offsets kept)
+  void setPlayStep(int h, int step); // put head h on a step (host transport alignment)
   void advance();               // both heads +1, only while stopped; no trigger
   void flip(int seq);           // BIT FLIP pressed: flip the bit at the write head now
   void setFlipHeld(int seq, bool isHeld) { flipHeld[seq] = isHeld; }
@@ -107,6 +108,7 @@ public:
     int pos[2];
     float held[2];
     bool running;
+    int rootSemis;
     uint32_t rng[4];
   };
   State state() const;
