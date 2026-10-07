@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "catacomb-ui", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "-d", "ui", "5180"], "port": 5180 }
+  ]
+}

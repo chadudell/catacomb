@@ -1,0 +1,61 @@
+:root {
+  --panel: #141414;
+  --ink: #d9d4c7;
+  --dim: #6b675e;
+  --led-off: #2a2724;
+  --led-on: #e0412f;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #0b0b0b;
+  color: var(--ink);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+}
+
+/* The panel is laid out at 1600 × 640 and scaled to the window (main.js). */
+#panel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1600px;
+  height: 640px;
+  transform-origin: 0 0;
+  background: var(--panel);
+  box-sizing: border-box;
+  padding: 48px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 56px;
+  letter-spacing: 0.3em;
+  font-weight: 800;
+}
+
+.sub {
+  margin: 4px 0 0;
+  color: var(--dim);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.bits { display: flex; flex-direction: column; gap: 24px; }
+.row { display: flex; align-items: center; gap: 24px; }
+.label { width: 80px; font-weight: 700; letter-spacing: 0.1em; }
+.leds { display: flex; gap: 28px; }
+.led {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--led-off);
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.6);
+}
+.led.on { background: var(--led-on); box-shadow: 0 0 12px var(--led-on); }
+
+footer { margin-top: auto; color: var(--dim); font-size: 18px; }
