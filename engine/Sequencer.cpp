@@ -11,8 +11,15 @@ Sequencer::Sequencer() {
 }
 
 void Sequencer::factoryPattern() {
+  // Random, but never nearly empty or full: 3–6 bits on in each sequencer.
+  for (int s = 0; s < 2; s++) {
+    int count;
+    do {
+      count = 0;
+      for (int b = 0; b < kBits; b++) count += (mem.cells[s * kBits + b].on = rng.chance(0.5));
+    } while (count < 3 || count > 6);
+  }
   for (int c = 0; c < kCells; c++) {
-    mem.cells[c].on = rng.chance(0.5);
     mem.cells[c].volts = randomVolts();
     mem.origin[c] = (uint8_t)c;
   }

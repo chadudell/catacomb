@@ -103,7 +103,7 @@ zero latency, real-time safe, auval clean.
 |---|---|---|
 | M0 | Skeleton: CMake/JUCE, `build.sh install`, auval; empty instrument loads in Logic | done (auval passes) |
 | M1 | Sequencer engine + Panel (button combos) + tests, headless | done (47 tests) |
-| M2 | Voice DSP, normals only | |
+| M2 | Voice DSP, normals only | done (15 engine tests, `tests/render.sh`) |
 | M3 | Plugin layer: params, host sync, MIDI, state | |
 | M4 | Panel UI: knobs, buttons, LEDs | |
 | M5 | Patch bay: routing + cables | |
@@ -119,4 +119,10 @@ zero latency, real-time safe, auval clean.
 - Hang drum scale: pitch classes {0, 2, 3, 7, 8, 10} (an "Integral"-style hang); Diminished 6th
   = {0, 2, 4, 5, 7, 8, 9, 11}.
 - BIT FLIP CV input is sampled on each clock (a high input flips the write bit).
-- EG retrigger jumps to the peak.
+- EG retrigger ramps to the new peak in 0.5 ms (no clicks) rather than jumping.
+- Factory pattern: random, but 3–6 bits on in each sequencer.
+- Ranges: MOD VCO 0.05 Hz–1.3 kHz; TEMPO 0.5–30 steps/s (internal clock); EG1 AMT fully up
+  = ±6 octaves of pitch; FM AMT fully up = index 6; EG1/CV → CUTOFF is 1 V/oct (8 octaves
+  from the EG); mixer channels clean to 5 V, then a soft knee.
+- Wavefolder: sin(k·u)/sin(min(k, π/2)), k from 0.05 (clean) to ~15; 4× oversampling.
+- Output: ±5 V at the VCA jack = ±0.5 at the host.

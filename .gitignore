@@ -4,3 +4,4 @@ plugin/build.log
 # Reference material from the hardware's maker — not ours to redistribute.
 *.pdf
 *.webp
+renders/
