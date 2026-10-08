@@ -6,3 +6,5 @@ plugin/build.log
 *.webp
 renders/
 *.jpg
+dist/
+plugin/build-release/

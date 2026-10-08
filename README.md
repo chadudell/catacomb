@@ -22,6 +22,7 @@ tests/render.sh            # render every factory preset to renders/*.wav (+ lev
 plugin/build.sh install    # build the AU, install it, validate with auval
 tests/auhost.sh            # load the installed AU like Logic does: transport, MIDI, save/restore
 swift tests/snap.swift URL out.png 1480 592   # render the panel in WebKit (what Logic uses)
+packaging/build-installer.sh                  # dist/Catacomb-<version>.pkg for testers
 ```
 
 Needs Xcode or the Command Line Tools and CMake (`python3 -m pip install --user cmake ninja`).
@@ -50,3 +51,15 @@ In Logic or GarageBand: new Software Instrument track → Instrument slot →
 
 The panel can be developed in a browser too: serve `ui/` (e.g. `python3 -m http.server -d ui 5180`);
 without the plugin it runs on demo data.
+
+## Installer for testers
+
+`packaging/build-installer.sh` builds `dist/Catacomb-<version>.pkg`: a universal (Apple Silicon +
+Intel) AU for macOS 11+, installable for all users (`/Library/Audio/Plug-Ins/Components`) or just
+the current one (`~/Library/…`). The installer's pages are in `packaging/resources/`. Bump the
+version in `plugin/CMakeLists.txt` before building a new one.
+
+Without an Apple Developer ID the package is unsigned, so a tester's Mac blocks it the first time:
+double-click it, dismiss the warning, then **System Settings → Privacy & Security → Open Anyway**.
+With a Developer ID, set `CATACOMB_APP_SIGN`, `CATACOMB_PKG_SIGN` and `CATACOMB_NOTARY_PROFILE`
+(see the script) and it is signed, notarized and stapled — no warning.

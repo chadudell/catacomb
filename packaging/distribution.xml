@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>Catacomb @VERSION@</title>
+    <welcome file="welcome.html" mime-type="text/html"/>
+    <readme file="readme.html" mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+    <options customize="never" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <!-- "Install for all users" (/Library) or "only for me" (~/Library). -->
+    <domains enable_anywhere="false" enable_currentUserHome="true" enable_localSystem="true"/>
+    <os-version min="11.0"/>
+    <choices-outline>
+        <line choice="au"/>
+    </choices-outline>
+    <choice id="au" title="Catacomb Audio Unit" description="The Catacomb instrument for Logic Pro and GarageBand.">
+        <pkg-ref id="com.catacomb.synth.au"/>
+    </choice>
+    <pkg-ref id="com.catacomb.synth.au" version="@VERSION@" onConclusion="none">Catacomb-AU.pkg</pkg-ref>
+</installer-gui-script>
