@@ -4,7 +4,7 @@ A generative semi-modular synth plugin (Audio Unit, for Logic Pro and GarageBand
 modelled on the behaviour of the Moog Labyrinth as documented in its manual.
 
 **Ground rules**
-- Catacomb copies *behaviour*, not trade dress: no Moog/Labyrinth names, logos or panel
+- Catacomb copies *behaviour*, not trade dress: no product names, logos or panel
   artwork in the product. Our own layout and graphics. "Inspired by" only.
 - One mono voice driven by its own sequencers (like the hardware).
 - No hardware to measure against, so curves the manual doesn't specify are tuned by ear
