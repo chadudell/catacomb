@@ -350,3 +350,30 @@ TEST("playNote: triggers while the sequencer runs, and plays the note's pitch") 
   CHECK(amplitudeAt(x, g) > 0.1);
   CHECK(amplitudeAt(x, g) > 20 * amplitudeAt(x, 261.63));
 }
+
+TEST("output limiter: holds a hot patch under -1 dBFS, leaves quiet ones untouched") {
+  auto run = [](bool hot, bool limit) {
+    Rig r;
+    r.e.outputLimiter = limit;
+    if (hot) {
+      r.e.params[Param::Blend] = 1;
+      r.e.params[Param::VcoLvl] = 1;
+      r.e.params[Param::MvcoLvl] = 1;
+      r.e.params[Param::RingLvl] = 1;
+      r.e.params[Param::Resonance] = 0.95f;
+      r.e.params[Param::Cutoff] = 0.35f;
+      r.e.params[Param::Volume] = 1;
+    }
+    return r.note(0.5);
+  };
+  auto peakOf = [](const std::vector<float>& x) {
+    float p = 0;
+    for (float v : x) p = std::max(p, std::abs(v));
+    return p;
+  };
+  const auto hotRaw = run(true, false), hotLimited = run(true, true);
+  std::printf("      hot patch peak: %.2f raw, %.3f limited\n", peakOf(hotRaw), peakOf(hotLimited));
+  CHECK(peakOf(hotRaw) > 1.0f);
+  CHECK(peakOf(hotLimited) <= (float)Engine::kLimiterCeiling + 1e-4f);
+  CHECK(run(false, true) == run(false, false)); // the home-base sine never reaches it
+}

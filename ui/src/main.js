@@ -140,6 +140,9 @@ function buildMenus() {
   scale.addEventListener('change', () => host.post({ type: 'setQuantMode', value: Number(scale.value) }));
 
   document.getElementById('reroll').addEventListener('click', () => host.post({ type: 'reroll' }));
+
+  const preset = document.getElementById('preset');
+  preset.addEventListener('change', () => host.post({ type: 'loadPreset', index: Number(preset.value) }));
 }
 
 // Momentary buttons: a press and a release, so held combos work like the hardware.
@@ -190,7 +193,7 @@ function applySeq(v) {
   const level = v.peakDb === undefined ? '' : v.peakDb <= -100 ? 'silent' : `out ${v.peakDb} dB`;
   status.textContent = [
     `v${version}`, audio, `${v.bpm.toFixed(1)} BPM`, v.hostPlaying ? 'Logic playing' : 'Logic stopped',
-    v.running ? 'sequencer running' : 'sequencer stopped', v.notes !== undefined ? `MIDI notes ${v.notes}` : '', level,
+    v.notes !== undefined ? `MIDI ${v.notes}` : '', level,
   ].filter(Boolean).join(' · ');
 }
 
@@ -230,6 +233,11 @@ host.onMessage((msg) => {
       }
       applyParams(msg.params);
       bay.setText(msg.cables);
+      {
+        const preset = document.getElementById('preset');
+        preset.replaceChildren(...(msg.presets || []).map((name, i) => new Option(name, i)));
+        preset.value = String(msg.preset ?? 0);
+      }
       break;
     case 'patch':
       bay.setText(msg.cables);

@@ -23,9 +23,10 @@ const META = {
   cvRange1: P('SEQ1 CV Range', 0, 1, 0), cvRange2: P('SEQ2 CV Range', 0, 1, 0),
   clockSource: P('Clock Source', 0, 1, 0, ['Host Tempo', 'Tempo Knob']),
   clockDiv: P('Clock Division', 0, 15, 4, DIVS),
-  clock2Div: P('SEQ2 Clock Division', 0, 16, 0, ['Same as Clock 1', ...DIVS]),
+  clock2Div: P('SEQ2 Clock Division', 0, 16, 0, ['Same as Step', ...DIVS]),
   followTransport: P('Follow Transport', 0, 1, 1),
-  midiNotes: P('MIDI Notes', 0, 1, 0, ['Play (trigger + transpose)', 'Transpose only (hardware)']),
+  midiNotes: P('MIDI Notes', 0, 1, 0, ['Play', 'Transpose (hardware)']),
+  outputLimiter: P('Output Limiter', 0, 1, 1),
   resetRecallsBuffer: P('RESET Jack Recalls Buffer', 0, 1, 0),
   cvOutUnipolar: P('Unipolar CV Outs', 0, 1, 0),
 };
@@ -48,7 +49,8 @@ export class Demo {
   handle(msg) {
     switch (msg.type) {
       case 'ready':
-        this.emit({ type: 'init', version: 'browser demo', meta: META, params: this.params, cables: this.cables });
+        this.emit({ type: 'init', version: 'browser demo', meta: META, params: this.params, cables: this.cables,
+          presets: ['Home Base', 'First Light', 'Ossuary Bells', 'Dust Brushes'], preset: 0 });
         this.send();
         break;
       case 'patch':

@@ -107,7 +107,7 @@ zero latency, real-time safe, auval clean.
 | M3 | Plugin layer: params, host sync, MIDI, state | done (`tests/auhost.sh` against the installed AU) |
 | M4 | Panel UI: knobs, buttons, LEDs | done |
 | M5 | Patch bay: routing + cables | done (13 patch tests + host save/load check) |
-| M6 | Sound pass, sidechain input, starter presets, polish | |
+| M6 | Sound pass, sidechain input, starter presets, polish | done, except tuning by ear (needs listening notes) |
 
 ## Our choices (manual is silent)
 - Knob curves (exponential for frequencies/times, linear elsewhere) — by ear.
@@ -142,6 +142,14 @@ zero latency, real-time safe, auval clean.
   1V/OCT normal (C3 = 0 V), sequencer running or not; it resets to 0 V on transport start.
   *Transpose only* — the hardware's behaviour. (The hardware's way alone left Logic regions and
   Live Loops silent whenever the transport ran.)
+- CPU: pitch, cutoff and fold curves run at the host rate (per oversampled sample only when
+  their jack is patched); the quantizer reruns only on a step or a host sample. ~2–3% of a core.
+- Output limiter (on by default): instant-attack / 150 ms-release peak follower, ceiling -1 dBFS,
+  no latency; transparent below the ceiling.
+- 13 factory presets (engine/Presets.cpp), after the manual's patch notes, our own names. A preset
+  sets knobs (others to default), step division, bits/scale/lengths, cables, and seeds the RNG;
+  BUFFER holds the preset's pattern. It leaves MIDI mode, follow transport, clock source,
+  limiter and the global settings alone.
 - UI must be checked in WebKit (tests/snap.swift), not just Chromium: WebKit mis-centres
   script-built grid items, so grid cells stretch and centre their own content.
 - Panel extras the hardware doesn't have: click a bit LED to flip it; menus for scale and clock;

@@ -280,15 +280,17 @@ h2 .hint { letter-spacing: 0.04em; text-transform: none; font-weight: 500; color
 }
 .small-btn:active { background: #3a3631; }
 #status {
-  margin-left: auto;
+  float: right;
   font-size: 10px;
+  font-weight: 500;
   color: var(--faint);
   letter-spacing: 0.04em;
   text-transform: none;
-  line-height: 1.25;
-  text-align: right;
-  max-width: 300px;
+  margin-top: 2px;
 }
+#preset { width: 170px; }
+.bar { gap: 16px; }
+.bar .small-btn { margin-left: auto; }
 
 /* ---- Patch bay ------------------------------------------------------------------------------ */
 .bay { grid-area: bay; display: flex; flex-direction: column; padding: 0 10px 8px; }

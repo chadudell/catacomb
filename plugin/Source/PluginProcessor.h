@@ -39,10 +39,11 @@ public:
   bool producesMidi() const override { return false; }
   double getTailLengthSeconds() const override { return 6.0; }
 
-  int getNumPrograms() override { return 1; }
-  int getCurrentProgram() override { return 0; }
-  void setCurrentProgram(int) override {}
-  const juce::String getProgramName(int) override { return "Default"; }
+  // Factory presets (Presets.h), shown in Logic's preset menu and the panel's.
+  int getNumPrograms() override;
+  int getCurrentProgram() override { return currentProgram; }
+  void setCurrentProgram(int index) override;
+  const juce::String getProgramName(int index) override;
   void changeProgramName(int, const juce::String&) override {}
 
   void getStateInformation(juce::MemoryBlock&) override;
@@ -84,7 +85,7 @@ public:
   // Patch cables, as text (StateText.h: "mvco>vcwIn,…"). The UI owns the order.
   juce::String patchText() const;
   void setPatchText(const juce::String& text);
-  std::atomic<int> patchGeneration{0}; // bumped when a loaded state replaces the cables
+  std::atomic<int> patchGeneration{0}; // bumped when a loaded state or preset replaces the cables
 
   // Bumped when the host loads a state, so an open editor can refresh.
   std::atomic<int> stateGeneration{0};
@@ -120,6 +121,8 @@ private:
   std::atomic<float>* resetRecalls = nullptr;
   std::atomic<float>* unipolar = nullptr;
   std::atomic<float>* midiNotes = nullptr;
+  std::atomic<float>* limiter = nullptr;
+  int currentProgram = 0;
   int notesReceived = 0;
   float outputPeak = 0;
   long long blocks = 0;

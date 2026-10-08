@@ -29,11 +29,6 @@ double expRange(double knob, double lo, double hi) { return lo * std::pow(hi / l
 // The mixer's level knobs: unity at noon, ×2 fully up.
 double levelGain(double knob) { return 2.0 * knob; }
 
-// Smooth wavefolder: sin(k·u) / sin(min(k, π/2)). Small k is a clean unity-gain line;
-// at k = π/2 the peaks round over; above that the wave folds back on itself, with no
-// hard breakpoints anywhere (the manual's "continuous wavefolding", p. 28).
-double fold(double u, double k) { return std::sin(k * u) / std::sin(std::min(k, kPi / 2)); }
-
 // The MOD VCO's triangle, starting at 0 V and rising.
 double triangle(double p) { return p < 0.25 ? 4 * p : p < 0.75 ? 2 - 4 * p : 4 * p - 4; }
 
@@ -68,6 +63,7 @@ void Engine::prepare(double sampleRate) {
   up2to4.design(0.25);
   foldDc.prepare(fsOs, 5.0);
   outDc.prepare(fs, 5.0);
+  limiterRelease = std::exp(-1.0 / (0.150 * fs)); // 150 ms
   updateControls();
 }
 
@@ -94,6 +90,7 @@ void Engine::resetVoice() {
   outDc = dsp::DcBlocker{};
   foldDc.prepare(fsOs, 5.0);
   outDc.prepare(fs, 5.0);
+  limiterEnv = 0;
   down4to2.reset();
   down2to1.reset();
   up1to2.reset();
@@ -207,12 +204,17 @@ void Engine::process(float* out, int n, const float* sidechain) {
     double os[kOversample];
     for (int k = 0; k < kOversample; k++) {
       outs[(int)Out::Sidechain] = sidechain ? sidechainOs[k] : 0.0;
-      os[k] = tick();
+      os[k] = tick(k);
     }
     const double y = down2to1.process(down4to2.process(os[0], os[1]), down4to2.process(os[2], os[3]));
 
     // ±5 V at the VCA jack → ±0.5 at the host, leaving headroom for folding and drive.
-    const double sample = outDc.process(y) * 0.1;
+    double sample = outDc.process(y) * 0.1;
+    if (outputLimiter) {
+      // Peak follower: jumps to each peak at once, lets go over 150 ms.
+      limiterEnv = std::max(std::abs(sample), limiterEnv * limiterRelease);
+      if (limiterEnv > kLimiterCeiling) sample *= kLimiterCeiling / limiterEnv;
+    }
     out[i] = std::isfinite(sample) ? (float)sample : 0.0f;
     samplesRendered++;
   }
@@ -220,7 +222,8 @@ void Engine::process(float* out, int n, const float* sidechain) {
 
 // ---- Once per oversampled sample -------------------------------------------------------------
 
-double Engine::tick() {
+double Engine::tick(int sub) {
+  const bool hostSample = sub == 0;
   const double trigOs = kTrigSeconds * fsOs;
 
   // -- Clock and sequencers -----------------------------------------------------------------
@@ -249,19 +252,31 @@ double Engine::tick() {
   const double vel2 = std::min(1.0, 2 * c.trigMix);
   double velocity = pendingVelocity; // TRIGGER button / MIDI note while stopped
   pendingVelocity = 0;
-  if (risingEdge(clk1, clk1Was) && seq.clock(0)) {
-    seqTrigSamples[0] = (int)trigOs;
-    velocity = std::max(velocity, vel1);
+  bool stepped = false;
+  if (risingEdge(clk1, clk1Was)) {
+    stepped = true;
+    if (seq.clock(0)) {
+      seqTrigSamples[0] = (int)trigOs;
+      velocity = std::max(velocity, vel1);
+    }
   }
-  if (risingEdge(clk2, clk2Was) && seq.clock(1)) {
-    seqTrigSamples[1] = (int)trigOs;
-    velocity = std::max(velocity, vel2);
+  if (risingEdge(clk2, clk2Was)) {
+    stepped = true;
+    if (seq.clock(1)) {
+      seqTrigSamples[1] = (int)trigOs;
+      velocity = std::max(velocity, vel2);
+    }
   }
   outs[(int)Out::Seq1Trig] = seqTrigSamples[0]-- > 0 ? 5.0 : 0.0;
   outs[(int)Out::Seq2Trig] = seqTrigSamples[1]-- > 0 ? 5.0 : 0.0;
   // The SEQ CV jacks may be unipolar (a global setting); the internal SEQ AMT routing
   // always gets the bipolar CV.
-  const double cv1 = seq.cv(0), cv2 = seq.cv(1);
+  // The quantizer only needs re-running when a step lands or the knobs may have moved.
+  if (hostSample || stepped) {
+    cvCache[0] = seq.cv(0);
+    cvCache[1] = seq.cv(1);
+  }
+  const double cv1 = cvCache[0], cv2 = cvCache[1];
   outs[(int)Out::Seq1Cv] = unipolarCvOut ? (cv1 + 5.0) / 2.0 : cv1;
   outs[(int)Out::Seq2Cv] = unipolarCvOut ? (cv2 + 5.0) / 2.0 : cv2;
 
@@ -296,8 +311,11 @@ double Engine::tick() {
   const Params& p = smoothed;
   const double eg1Oct = e1 / 8.0 * kEgPitchOctaves;
 
-  const double mvcoOct = input(In::Mvco1VOct, 0) + p[Param::MvcoSeq2Amt] * cv2 + p[Param::MvcoEg1Amt] * eg1Oct;
-  const double mvcoHz = std::min(c.mvcoHz * std::exp2(mvcoOct), 0.25 * fsOs);
+  if (hostSample || stepped || patch.patched(In::Mvco1VOct)) {
+    const double mvcoOct = input(In::Mvco1VOct, 0) + p[Param::MvcoSeq2Amt] * cv2 + p[Param::MvcoEg1Amt] * eg1Oct;
+    mvcoHzCache = std::min(c.mvcoHz * std::exp2(mvcoOct), 0.25 * fsOs);
+  }
+  const double mvcoHz = mvcoHzCache;
   if (risingEdge(input(In::MvcoSync, 0), syncWas)) mvcoPhase = 0;
   mvcoPhase += mvcoHz / fsOs;
   mvcoPhase -= std::floor(mvcoPhase);
@@ -306,8 +324,11 @@ double Engine::tick() {
 
   // Thru-zero linear FM: the instantaneous frequency swings around the carrier and may
   // go negative (the phase runs backwards), so the pitch centre never moves.
-  const double vcoOct = c.vcoOct + input(In::Vco1VOct, keyboardVolts) + p[Param::VcoSeq1Amt] * cv1 + p[Param::VcoEg1Amt] * eg1Oct;
-  const double vcoHz = std::min(std::exp2(vcoOct), 0.25 * fsOs);
+  if (hostSample || stepped || patch.patched(In::Vco1VOct)) {
+    const double vcoOct = c.vcoOct + input(In::Vco1VOct, keyboardVolts) + p[Param::VcoSeq1Amt] * cv1 + p[Param::VcoEg1Amt] * eg1Oct;
+    vcoHzCache = std::min(std::exp2(vcoOct), 0.25 * fsOs);
+  }
+  const double vcoHz = vcoHzCache;
   vcoPhase += vcoHz * (1.0 + c.fmIndex * mvco / 5.0) / fsOs;
   vcoPhase -= std::floor(vcoPhase);
   const double vco = 5.0 * std::sin(kTwoPi * vcoPhase);
@@ -332,14 +353,24 @@ double Engine::tick() {
   // -- VCW and VCF, in the ORDER the switch says ----------------------------------------------
   const int order = (int)std::lround(p[Param::Order]);
 
-  auto runVcw = [&](double x) {
+  if (hostSample || stepped || patch.patched(In::Fold)) {
     const double amt = c.foldKnob + p[Param::FoldEg1Amt] * input(In::Fold, e1) / 8.0 + p[Param::FoldSeq1Amt] * cv1 / 5.0;
-    const double k = 0.05 + 15.0 * std::pow(std::clamp(amt, 0.0, 1.2), 1.3);
-    return foldDc.process(5.0 * fold(x / 5.0 + c.bias, k));
+    foldKCache = 0.05 + 15.0 * std::pow(std::clamp(amt, 0.0, 1.2), 1.3);
+    foldNormCache = 1.0 / std::sin(std::min(foldKCache, kPi / 2));
+  }
+  if (hostSample || stepped || patch.patched(In::Cutoff)) {
+    const double oct = c.cutoffOct + p[Param::CutoffEg1Amt] * input(In::Cutoff, e1) + p[Param::CutoffSeq2Amt] * cv2;
+    vcfGCache = dsp::Svf::gain(std::exp2(oct), fsOs);
+  }
+
+  auto runVcw = [&](double x) {
+    // Smooth wavefolder: sin(k·u) / sin(min(k, π/2)). Small k is a clean unity-gain line;
+    // at k = π/2 the peaks round over; above that the wave folds back on itself, with no
+    // hard breakpoints anywhere (the manual's "continuous wavefolding", p. 28).
+    return foldDc.process(5.0 * std::sin(foldKCache * (x / 5.0 + c.bias)) * foldNormCache);
   };
   auto runVcf = [&](double x) {
-    const double oct = c.cutoffOct + p[Param::CutoffEg1Amt] * input(In::Cutoff, e1) + p[Param::CutoffSeq2Amt] * cv2;
-    vcf.process(x, dsp::Svf::gain(std::exp2(oct), fsOs), c.resK);
+    vcf.process(x, vcfGCache, c.resK);
     // FILTER MODE crossfades LP → BP (BP scaled to unity passband at no resonance).
     return (1 - c.mode) * vcf.lp + c.mode * 2.0 * vcf.bp;
   };

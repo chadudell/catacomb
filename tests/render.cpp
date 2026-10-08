@@ -1,6 +1,9 @@
-// Renders a few example patches to WAV (renders/*.wav) and reports CPU use, so the
-// engine can be heard without the plugin. Build and run: tests/render.sh
+// Renders every factory preset to WAV (renders/*.wav, 12 s at 120 BPM) and reports level,
+// silence and CPU use, so the engine can be heard without the plugin. Build and run: tests/render.sh
+#include "../engine/Divisions.h"
 #include "../engine/Engine.h"
+#include "../engine/Presets.h"
+#include "../engine/StateText.h"
 
 #include <chrono>
 #include <cstdio>
@@ -34,99 +37,41 @@ void writeWav(const std::string& path, const std::vector<float>& x) {
   std::fclose(f);
 }
 
-double knobFor(double hz, double lo, double hi) { return std::log(hz / lo) / std::log(hi / lo); }
-
-struct Patch {
-  const char* name;
-  std::function<void(Engine&)> set;
-};
-
-const Patch kPatches[] = {
-    {"01-home-melody", [](Engine& e) {
-       // The manual's first walkthrough: a sine VCO playing SEQ1, quantized to major.
-       e.params[Param::VcoFreq] = (float)knobFor(262, 20, 5000);
-       e.params[Param::VcoSeq1Amt] = 1;
-       e.params[Param::CvRange1] = 0.35f;
-       e.params[Param::Eg2Decay] = 0.4f;
-     }},
-    {"02-kick-and-bell", [](Engine& e) {
-       // MOD VCO as a kick on SEQ2's rhythm, the VCO as a folded bell on SEQ1.
-       e.params[Param::MvcoFreq] = (float)knobFor(48, 0.05, 1300);
-       e.params[Param::MvcoEg1Amt] = 0.35f;
-       e.params[Param::MvcoLvl] = 0.6f;
-       e.params[Param::VcoFreq] = (float)knobFor(523, 20, 5000);
-       e.params[Param::VcoSeq1Amt] = 1;
-       e.params[Param::CvRange1] = 0.3f;
-       e.params[Param::VcoLvl] = 0.35f;
-       e.params[Param::Fold] = 0.35f;
-       e.params[Param::FoldEg1Amt] = 0.4f;
-       e.params[Param::Eg1Decay] = 0.25f;
-       e.params[Param::Eg2Decay] = 0.35f;
-       e.params[Param::EgTrigMix] = 0.5f;
-       e.seq.setQuantMode(12); // minor 7th
-     }},
-    {"03-filter-sweep", [](Engine& e) {
-       // The VCF path with everything in the mixer, resonant, EG1 on the cutoff.
-       e.params[Param::Blend] = 1;
-       e.params[Param::VcoLvl] = 0.8f;
-       e.params[Param::MvcoLvl] = 0.6f;
-       e.params[Param::RingLvl] = 0.5f;
-       e.params[Param::NoiseLvl] = 0.2f;
-       e.params[Param::MvcoFreq] = (float)knobFor(55, 0.05, 1300);
-       e.params[Param::VcoFreq] = (float)knobFor(110, 20, 5000);
-       e.params[Param::VcoSeq1Amt] = 1;
-       e.params[Param::CvRange1] = 0.25f;
-       e.params[Param::Cutoff] = 0.3f;
-       e.params[Param::CutoffEg1Amt] = 0.55f;
-       e.params[Param::CutoffSeq2Amt] = 0.4f;
-       e.params[Param::CvRange2] = 0.4f;
-       e.params[Param::Resonance] = 0.8f;
-       e.params[Param::Eg1Decay] = 0.3f;
-       e.params[Param::Eg2Decay] = 0.4f;
-       e.seq.setQuantMode(1); // chromatic
-     }},
-    {"04-fm-fold-corrupt", [](Engine& e) {
-       // Thru-zero FM into the folder, both sequencers mutating, VCF→VCW.
-       e.params[Param::Order] = OrderVcfVcw;
-       e.params[Param::FmAmt] = 0.35f;
-       e.params[Param::MvcoFreq] = (float)knobFor(330, 0.05, 1300);
-       e.params[Param::MvcoSeq2Amt] = 1;
-       e.params[Param::CvRange2] = 0.3f;
-       e.params[Param::VcoFreq] = (float)knobFor(220, 20, 5000);
-       e.params[Param::VcoSeq1Amt] = 1;
-       e.params[Param::CvRange1] = 0.3f;
-       e.params[Param::Fold] = 0.3f;
-       e.params[Param::FoldSeq1Amt] = 0.5f;
-       e.params[Param::Bias] = 0.25f;
-       e.params[Param::Cutoff] = 0.6f;
-       e.params[Param::FilterMode] = 0.6f;
-       e.params[Param::Resonance] = 0.5f;
-       e.params[Param::Blend] = 0.3f;
-       e.params[Param::Corrupt1] = 0.6f;
-       e.params[Param::Corrupt2] = 0.4f;
-       e.params[Param::EgTrigMix] = 0.5f;
-       e.params[Param::Eg2Decay] = 0.3f;
-       e.seq.setQuantMode(14); // hang drum
-     }},
-};
-
 } // namespace
 
 int main() {
-  std::system("mkdir -p renders");
-  for (const auto& p : kPatches) {
+  std::system("rm -rf renders && mkdir -p renders");
+  int n = 0;
+  for (const auto& preset : factoryPresets()) {
     Engine e;
+    e.params = presetParams(preset);
     e.prepare(kFs);
-    e.seq.factoryPattern();
-    p.set(e);
+    e.seq.setState(presetSequencer(preset, e.seq.state()));
+    e.patch = patchFrom(decodeCables(preset.cables));
+    e.setClockRates(120.0 / 60.0 / kDivisions[preset.clockDiv].beats, 0); // 120 BPM
     e.seq.setRunning(true);
-    std::vector<float> out((size_t)(10 * kFs));
+
+    std::vector<float> out((size_t)(12 * kFs));
     const auto t0 = std::chrono::steady_clock::now();
     for (size_t i = 0; i < out.size(); i += 256) e.process(out.data() + i, 256);
     const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+
     float peak = 0;
-    for (float v : out) peak = std::max(peak, std::abs(v));
-    writeWav(std::string("renders/") + p.name + ".wav", out);
-    std::printf("%-22s peak %5.2f   CPU %4.1f%% of one core\n", p.name, peak, 100 * secs / 10.0);
+    double sum = 0;
+    int silent = 0, windows = 0;
+    for (size_t i = 0; i + 4800 <= out.size(); i += 4800, windows++) {
+      float wp = 0;
+      for (size_t j = i; j < i + 4800; j++) wp = std::max(wp, std::abs(out[j]));
+      silent += wp < 1e-3f;
+    }
+    for (float v : out) {
+      peak = std::max(peak, std::abs(v));
+      sum += (double)v * v;
+    }
+    char name[128];
+    std::snprintf(name, sizeof name, "renders/%02d %s.wav", ++n, preset.name);
+    writeWav(name, out);
+    std::printf("%-24s peak %5.2f  rms %5.3f  silent %3d%%  CPU %4.1f%%\n", preset.name, peak,
+                std::sqrt(sum / (double)out.size()), 100 * silent / windows, 100 * secs / 12.0);
   }
 }

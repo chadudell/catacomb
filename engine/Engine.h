@@ -31,6 +31,11 @@ public:
   bool resetRecallsBuffer = false; // a RESET jack trigger also recalls the BUFFER
   bool unipolarCvOut = false;      // SEQ CV outs 0…+5 V instead of ±5 V
 
+  // Output safety limiter: keeps the host output under -1 dBFS (a resonant or folded
+  // patch can otherwise clip a bus). Untouched below the ceiling; no lookahead/latency.
+  bool outputLimiter = true;
+  static constexpr double kLimiterCeiling = 0.891; // -1 dBFS
+
   // Knobs and switches (the host writes these before each block) and the cables.
   Params params;
   Patch patch;
@@ -77,7 +82,11 @@ private:
   double now() const { return (double)samplesRendered / fs; }
   double input(In i, double normal) const;
   void updateControls();
-  double tick(); // one oversampled sample
+  double tick(int sub); // one oversampled sample; sub = 0…kOversample-1 within the host sample
+  // Values that only change at the host rate (unless their jack carries audio): computed
+  // on sub-sample 0, or every sub-sample when the jack is patched.
+  double cvCache[2]{};
+  double vcoHzCache = 0, mvcoHzCache = 0, foldKCache = 0, foldNormCache = 1, vcfGCache = 0;
   double sidechainOs[kOversample]{};
 
   Panel panel{seq};
@@ -120,6 +129,7 @@ private:
   dsp::DecayEnvelope eg1, eg2;
   dsp::Svf vcf;
   dsp::DcBlocker foldDc, outDc;
+  double limiterEnv = 0, limiterRelease = 0.9999;
   double vcwOut = 0, vcfOut = 0;
   dsp::Downsampler2x down4to2, down2to1;
   dsp::Upsampler2x up1to2, up2to4;

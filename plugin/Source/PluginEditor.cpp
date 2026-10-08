@@ -104,6 +104,10 @@ void CatacombEditor::handle(const juce::var& msg) {
     init->setProperty("meta", proc.paramMeta());
     init->setProperty("params", proc.paramValues(false));
     init->setProperty("cables", proc.patchText());
+    juce::Array<juce::var> presets;
+    for (int i = 0; i < proc.getNumPrograms(); i++) presets.add(proc.getProgramName(i));
+    init->setProperty("presets", presets);
+    init->setProperty("preset", proc.getCurrentProgram());
     seenPatchGeneration = proc.patchGeneration.load();
     emit(juce::var(init));
     timerCallback();
@@ -114,6 +118,9 @@ void CatacombEditor::handle(const juce::var& msg) {
     proc.setParamFromUi(msg["id"].toString(), (double)msg["value"]);
   } else if (type == "gesture") {
     proc.gestureFromUi(msg["id"].toString(), (bool)msg["begin"]);
+  } else if (type == "loadPreset") {
+    proc.setCurrentProgram((int)msg["index"]);
+    proc.updateHostDisplay(juce::AudioProcessor::ChangeDetails().withProgramChanged(true));
   } else if (type == "patch") {
     proc.setPatchText(msg["cables"].toString());
   } else if (type == "toggleCell") {

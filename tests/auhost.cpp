@@ -283,6 +283,33 @@ int main() {
   const std::string xml((const char*)CFDataGetBytePtr(data) + 8, (size_t)CFDataGetLength(data) - 8);
   check(xml.find("cables=\"mvco&gt;vcwVcaCv\"") != std::string::npos, "and is saved again with the project");
 
+  // Factory presets: listed for Logic's preset menu, and selecting one loads it all.
+  {
+    Instance f;
+    f.open();
+    CFArrayRef presets = nullptr;
+    UInt32 size = sizeof presets;
+    AudioUnitGetProperty(f.au, kAudioUnitProperty_FactoryPresets, kAudioUnitScope_Global, 0, &presets, &size);
+    const CFIndex count = presets ? CFArrayGetCount(presets) : 0;
+    std::printf("      %ld factory presets\n", (long)count);
+    check(count >= 10, "factory presets are listed for Logic");
+    // "Bone Hats" patches CLOCK → VCO 1V/OCT; find it and select it like Logic would.
+    for (CFIndex i = 0; i < count; i++) {
+      auto* p = (AUPreset*)CFArrayGetValueAtIndex(presets, i);
+      char name[128] = {};
+      CFStringGetCString(p->presetName, name, sizeof name, kCFStringEncodingUTF8);
+      if (std::string(name) != "Bone Hats") continue;
+      AUPreset choice = *p;
+      check(AudioUnitSetProperty(f.au, kAudioUnitProperty_PresentPreset, kAudioUnitScope_Global, 0, &choice, sizeof choice) == noErr,
+            "selects a factory preset");
+      f.transport.playing = true;
+      check(peak(f.render(2.0)) > 0.05, "the preset plays");
+      auto data = (CFDataRef)CFDictionaryGetValue((CFDictionaryRef)f.saveState(), CFSTR("jucePluginState"));
+      const std::string xml((const char*)CFDataGetBytePtr(data) + 8, (size_t)CFDataGetLength(data) - 8);
+      check(xml.find("clock&gt;vco1voct") != std::string::npos, "and brings its cables");
+    }
+  }
+
   std::printf("\n%s\n", failures ? "FAILED" : "all host checks passed");
   return failures ? 1 : 0;
 }

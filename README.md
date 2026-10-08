@@ -18,7 +18,7 @@ tests/     engine unit tests
 
 ```
 tests/run.sh               # engine unit tests (clang only)
-tests/render.sh            # render example patches to renders/*.wav
+tests/render.sh            # render every factory preset to renders/*.wav (+ level/CPU report)
 plugin/build.sh install    # build the AU, install it, validate with auval
 tests/auhost.sh            # load the installed AU like Logic does: transport, MIDI, save/restore
 swift tests/snap.swift URL out.png 1480 592   # render the panel in WebKit (what Logic uses)
@@ -35,6 +35,9 @@ In Logic or GarageBand: new Software Instrument track → Instrument slot →
 - MIDI notes (regions, Live Loops, a keyboard): **MIDI notes: Play** (default) fires the
   envelopes and transposes the VCO from C3, sequencer running or not. **Transpose only** is
   the hardware's way: notes move the quantizer's root, and only play while it's stopped.
+- Presets: Logic's preset menu (plugin header) or the panel's Preset menu. `tests/render.sh`
+  renders all of them to renders/*.wav.
+- Limiter (on by default) keeps the output under −1 dBFS.
 - After installing a new build, quit and reopen Logic: it keeps the old one loaded until then.
   The panel's footer shows the version and what the plugin sees (audio, transport, MIDI, level).
 - Every knob is in Logic's automation lanes and the plugin's Controls view.

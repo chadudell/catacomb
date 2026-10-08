@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Presets.h"
 #include "StateText.h"
 
 #include <cmath>
@@ -27,6 +28,7 @@ CatacombProcessor::CatacombProcessor()
   resetRecalls = apvts.getRawParameterValue(ids::resetRecallsBuffer);
   unipolar = apvts.getRawParameterValue(ids::cvOutUnipolar);
   midiNotes = apvts.getRawParameterValue(ids::midiNotes);
+  limiter = apvts.getRawParameterValue(ids::outputLimiter);
   sidechain.assign(4096, 0.0f);
 
   for (auto* param : getParameters())
@@ -101,6 +103,7 @@ void CatacombProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mid
   for (int i = 0; i < kNumParams; i++) engine.params.v[i] = raw[(size_t)i]->load(std::memory_order_relaxed);
   engine.resetRecallsBuffer = resetRecalls->load() > 0.5f;
   engine.unipolarCvOut = unipolar->load() > 0.5f;
+  engine.outputLimiter = limiter->load() > 0.5f;
 
   // The sidechain shares channels with the output, so take a (mono) copy first.
   const float* side = nullptr;
@@ -363,6 +366,48 @@ void CatacombProcessor::setPatchText(const juce::String& text) {
   patchPending = true;
 }
 
+int CatacombProcessor::getNumPrograms() { return (int)factoryPresets().size(); }
+
+const juce::String CatacombProcessor::getProgramName(int index) {
+  const auto& presets = factoryPresets();
+  return index >= 0 && index < (int)presets.size() ? presets[(size_t)index].name : "";
+}
+
+// Loads a factory preset: knobs (the rest to their defaults), step division, the
+// sequencer and the cables. Your own settings — MIDI notes, follow transport, clock
+// source, limiter, the global settings — stay as they are.
+void CatacombProcessor::setCurrentProgram(int index) {
+  const auto& presets = factoryPresets();
+  if (index < 0 || index >= (int)presets.size()) return;
+  currentProgram = index;
+  const Preset& preset = presets[(size_t)index];
+
+  auto set = [&](const juce::String& id, float value) {
+    if (auto* p = apvts.getParameter(id)) {
+      p->beginChangeGesture();
+      p->setValueNotifyingHost(p->convertTo0to1(value));
+      p->endChangeGesture();
+    }
+  };
+  const Params knobs = presetParams(preset);
+  for (int i = 0; i < kNumParams; i++) set(paramInfo((Param)i).id, knobs.v[i]);
+  set(ids::clockDiv, (float)preset.clockDiv);
+  set(ids::clock2Div, 0);
+
+  const auto seqState = presetSequencer(preset, seqView().state);
+  {
+    const juce::SpinLock::ScopedLockType h(handoffLock);
+    pendingState = seqState;
+    statePending = true;
+  }
+  {
+    const juce::SpinLock::ScopedLockType v(viewLock);
+    view.state = seqState;
+  }
+  setPatchText(preset.cables);
+  patchGeneration++;
+}
+
 juce::AudioProcessorEditor* CatacombProcessor::createEditor() { return new CatacombEditor(*this); }
 
 // ---- State ---------------------------------------------------------------------------------
@@ -381,6 +426,7 @@ void CatacombProcessor::getStateInformation(juce::MemoryBlock& dest) {
   patch.setProperty("cables", patchText(), nullptr);
   state.appendChild(patch, nullptr);
   state.setProperty("version", JucePlugin_VersionString, nullptr);
+  state.setProperty("program", currentProgram, nullptr);
   if (auto xml = state.createXml()) copyXmlToBinary(*xml, dest);
 }
 
@@ -389,6 +435,8 @@ void CatacombProcessor::setStateInformation(const void* data, int size) {
   if (!xml) return;
   auto state = juce::ValueTree::fromXml(*xml);
   if (!state.hasType(apvts.state.getType())) return;
+  currentProgram = juce::jlimit(0, getNumPrograms() - 1, (int)state.getProperty("program", 0));
+  state.removeProperty("program", nullptr);
   auto seq = state.getChildWithName("Sequencer");
   state.removeChild(seq, nullptr);
   auto patch = state.getChildWithName("Patch");

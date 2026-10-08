@@ -72,7 +72,7 @@
 
     <div class="row bottom">
       <section class="sec mod" style="width: 567px">
-        <h2>Sequencer</h2>
+        <h2>Sequencer <span id="status"></span></h2>
         <span class="place lamp" id="runLamp" data-x="14" data-y="180"></span>
         <button class="place pad round" data-x="56" data-y="82" data-button="Trigger" title="TRIGGER: fire both envelopes">Trigger</button>
         <button class="place pad round red" data-x="56" data-y="180" data-button="RunStop" title="RUN / STOP the sequencers (they don't reset)">Run / Stop</button>
@@ -125,15 +125,16 @@
     </aside>
 
     <footer class="bar">
-      <div class="brand-block"><span class="brand">CATACOMB</span><span class="tag">parallel generative synthesizer</span></div>
+      <div class="brand-block"><span class="brand">CATACOMB</span></div>
+      <label>Preset <select id="preset"></select></label>
       <label>Scale <select id="scale"></select></label>
       <label>Clock <select data-param="clockSource"></select></label>
       <label>Step <select data-param="clockDiv"></select></label>
       <label>SEQ2 step <select data-param="clock2Div"></select></label>
       <label>MIDI notes <select data-param="midiNotes"></select></label>
       <label class="check"><input type="checkbox" data-param="followTransport"> Follow transport</label>
+      <label class="check" title="Keeps the output under −1 dBFS"><input type="checkbox" data-param="outputLimiter"> Limiter</label>
       <button class="small-btn" id="reroll" title="New random voltages for every bit that's on (rhythm kept)">Re-roll notes</button>
-      <span id="status"></span>
     </footer>
     <div id="readout" hidden></div>
     <div id="tip" hidden><b></b><span></span></div>
