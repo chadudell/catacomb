@@ -34,7 +34,7 @@ std::vector<Preset> build() {
                 {"eg2Decay", 0.42f}, {"egTrigMix", 0.5f}},
                "00111010", "01111010", Min7, "", 4, 8, 8, 21});
 
-  // After "Lost in the Labyrinth": ring-modulated metal, the MOD VCO in the audio range.
+  // After the manual's metallic-tones patch: ring-modulated metal, the MOD VCO in the audio range.
   v.push_back({"Ossuary Bells",
                {{"vcoFreq", vcoHz(523)}, {"vcoSeq1Amt", 1}, {"cvRange1", 0.4f}, {"vcoLvl", 0.4f},
                 {"ringLvl", 0.6f}, {"mvcoLvl", 0.25f}, {"mvcoFreq", mvcoHz(370)}, {"mvcoSeq2Amt", 1},

@@ -63,3 +63,21 @@ Without an Apple Developer ID the package is unsigned, so a tester's Mac blocks 
 double-click it, dismiss the warning, then **System Settings → Privacy & Security → Open Anyway**.
 With a Developer ID, set `CATACOMB_APP_SIGN`, `CATACOMB_PKG_SIGN` and `CATACOMB_NOTARY_PROFILE`
 (see the script) and it is signed, notarized and stapled — no warning.
+
+## License
+
+Copyright (C) 2026 Chad Udell
+
+Catacomb is free software: you can redistribute it and/or modify it under the terms of the GNU
+Affero General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version. It is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
+
+Catacomb is built with [JUCE](https://juce.com), used under its AGPLv3 licence.
+
+## Not affiliated
+
+Catacomb is an independent project. It is not affiliated with, endorsed by or sponsored by any
+instrument maker, and contains no third-party artwork, code or documentation. Any trademarks belong
+to their respective owners.
