@@ -1,7 +1,7 @@
 # Catacomb — plan
 
 A generative semi-modular synth plugin (Audio Unit, for Logic Pro and GarageBand),
-modelled on the behaviour of the Moog Labyrinth as documented in its manual.
+modelled on the behaviour of a generative semi-modular synthesizer.
 
 **Ground rules**
 - Catacomb copies *behaviour*, not trade dress: no product names, logos or panel
@@ -17,8 +17,6 @@ modelled on the behaviour of the Moog Labyrinth as documented in its manual.
 | Name | Catacomb |
 | Format | AU only (`aumu`), Logic Pro + GarageBand. Standalone app for quick testing. |
 | UI | Web UI (HTML/SVG/JS) in a WebView, as in Meat Thumb |
-| Location | `~/Desktop/Labyrinth Clone` (own git repo) |
-| JUCE | 8.0.9, the local checkout in `~/Documents/MeatThumb Synth/JUCE` (or fetched) |
 
 ## Architecture
 
